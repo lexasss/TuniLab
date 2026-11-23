@@ -19,6 +19,7 @@
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|x86" Project="x86" />
   </Project>
+  <Project Path="GrpcClient/GrpcClients.csproj" Id="6d37a5df-fc98-4747-8760-74935a8d7e38" />
   <Project Path="Server/Server.csproj">
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|x86" Project="x86" />

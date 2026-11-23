@@ -1,8 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using GrpcClients;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Windows;
-using Dashboard.GrpcClients;
 
 namespace Dashboard;
 
@@ -41,6 +41,11 @@ public partial class App : Application
         IServiceCollection services,
         ConfigurationManager config)
     {
+        config.AddJsonFile(
+            "appSettings.json",
+            optional: false,
+            reloadOnChange: false);
+
         services.Configure<AppSettings>(config);
 
         services.AddSingleton<LeapMotionClient>();

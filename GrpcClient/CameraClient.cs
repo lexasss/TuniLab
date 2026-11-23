@@ -1,9 +1,8 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.Options;
-using Dashboard.Tools;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
 public sealed class CameraClient 
     : Client<Camera.Dispatcher.DispatcherClient, Camera.Event>

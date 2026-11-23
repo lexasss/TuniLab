@@ -1,4 +1,6 @@
-﻿namespace BeltsBrakes;
+﻿using GrpcClients;
+
+namespace BeltsBrakes;
 
 internal class SpeedWarnSignController : IDisposable
 {

@@ -2,22 +2,24 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
-public sealed class PointingClient 
-    : Client<Pointing.Dispatcher.DispatcherClient, Pointing.Event>
+public sealed class LeapMotionClient 
+    : Client<LeapMotion.Dispatcher.DispatcherClient, LeapMotion.Event>
 {
     public event EventHandler<bool>? ConnectionChanged;
-    public event EventHandler<Pointing.Data>? DataUpdated;
+    public event EventHandler<bool>? HandVisibilityChanged;
+    public event EventHandler<bool>? HandProximityChanged;
+    public event EventHandler<LeapMotion.Sample>? HandLocationChanged;
 
     public bool IsConnected => _isConnected;
     public bool IsStreamingData => _isStreamingData;
     public bool IsLogging => _isLogging;
 
-    public PointingClient(IOptions<AppSettings> appSettings)
-        : base(appSettings, (int)Common.Ports.Pointing)
+    public LeapMotionClient(IOptions<AppSettings> appSettings)
+        : base(appSettings, (int)Common.Ports.LeapMotion)
     {
-        _client = new Pointing.Dispatcher.DispatcherClient(_channel);
+        _client = new LeapMotion.Dispatcher.DispatcherClient(_channel);
     }
 
     public override void Dispose()
@@ -46,51 +48,15 @@ public sealed class PointingClient
         _ = _client.Stop(new Empty());
     }
 
-    public Pointing.Device[] GetDevices(Pointing.DeviceType type)
+    public void Configure(LeapMotion.ConfigType config)
     {
         if (!_isAvailable)
-            return [];
+            return;
 
-        var devices = _client.GetDevices(new Pointing.DeviceRequest()
+        _client.Configure(new LeapMotion.Configuration()
         {
-            Type = type
+            Config = config
         });
-
-        return devices.Items.ToArray();
-    }
-
-    public bool SetPointingDevice(Pointing.Device? device)
-    {
-        if (!_isAvailable)
-            return false;
-
-        if (device?.Description != _currentDevice?.Description)
-        {
-            _isConnected = device != null && _client.SetPointingDevice(device).Value;
-        }
-        else
-        {
-            _isConnected = true;
-        }
-
-        if (_isConnected && _dataCall == null)
-        {
-            _ = ReadData();
-            _ = ReadEvents();
-        }
-
-        ConnectionChanged?.Invoke(this, _isConnected);
-
-        return _isConnected;
-    }
-
-    public Pointing.Device? GetCurrentDevice()
-    {
-        if (!_isAvailable)
-            return null;
-
-        _currentDevice = _client.GetCurrentDevice(new Empty());
-        return _currentDevice;
     }
 
     public void SetLoggingEnabled(bool enabled)
@@ -100,10 +66,9 @@ public sealed class PointingClient
 
         if (_isLogging != enabled)
         {
-            _isLogging = _client.SetLogFileName(new Common.String()
-            {
+            _isLogging = _client.SetLogFileName(new Common.String() {
                 Value = enabled
-                    ? "pointing.tsv"
+                    ? "leap.tsv"
                     : string.Empty
             }).Value;
         }
@@ -111,17 +76,19 @@ public sealed class PointingClient
 
     #region Internal
 
-    Pointing.Device? _currentDevice = null;
-
-    AsyncServerStreamingCall<Pointing.Data>? _dataCall;
+    AsyncServerStreamingCall<LeapMotion.Sample>? _dataCall;
 
     protected override void Initialize()
     {
         _isAvailable = _client.IsAvailable(new Empty()).Value;
         if (_isAvailable)
         {
+            _isConnected = _client.IsConnected(new Empty()).Value;
             _isStreamingData = _client.IsStreamingData(new Empty()).Value;
             _isLogging = _client.IsLogging(new Empty()).Value;
+
+            _ = ReadData();
+            _ = ReadEvents();
         }
     }
 
@@ -135,7 +102,8 @@ public sealed class PointingClient
             while (await responseStream.MoveNext(_dataCts.Token))
             {
                 var data = responseStream.Current;
-                DataUpdated?.Invoke(this, data);
+
+                HandLocationChanged?.Invoke(this, data);
             }
         }
         catch (RpcException ex)
@@ -148,19 +116,30 @@ public sealed class PointingClient
         }
     }
 
-    protected override IAsyncStreamReader<Pointing.Event> GetEventStream()
+    protected override IAsyncStreamReader<LeapMotion.Event> GetEventStream()
     {
         _eventsCall = _client.ReadEvents(new Empty());
         return _eventsCall.ResponseStream;
     }
 
-    protected override bool HandleEvent(Pointing.Event evt)
+    protected override bool HandleEvent(LeapMotion.Event evt)
     {
         switch (evt.ValueCase)
         {
-            case Pointing.Event.ValueOneofCase.IsConnected:
+            case LeapMotion.Event.ValueOneofCase.IsConnected:
                 _isConnected = evt.IsConnected;
                 ConnectionChanged?.Invoke(this, _isConnected);
+                if (!_isConnected)
+                {
+                    HandVisibilityChanged?.Invoke(this, false);
+                    HandProximityChanged?.Invoke(this, false);
+                }
+                break;
+            case LeapMotion.Event.ValueOneofCase.IsHandVisible:
+                HandVisibilityChanged?.Invoke(this, evt.IsHandVisible);
+                break;
+            case LeapMotion.Event.ValueOneofCase.IsHandClose:
+                HandProximityChanged?.Invoke(this, evt.IsHandClose);
                 break;
             default:
                 return false;

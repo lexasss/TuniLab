@@ -2,7 +2,7 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace BeltsBrakes;
+namespace GrpcClients;
 
 public sealed class TensionRClient 
     : Client<TensionR.Dispatcher.DispatcherClient, TensionR.Event>
@@ -33,8 +33,6 @@ public sealed class TensionRClient
     public void Connect(string port)
     {
         if (!_isAvailable)
-            return;
-        if (_isConnected)
             return;
 
         _ = _client.Connect(new Common.String() {

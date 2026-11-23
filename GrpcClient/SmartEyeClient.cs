@@ -2,7 +2,7 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
 public sealed class SmartEyeClient 
     : Client<SmartEye.Dispatcher.DispatcherClient, SmartEye.Event>

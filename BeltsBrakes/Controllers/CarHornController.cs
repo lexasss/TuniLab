@@ -1,32 +1,35 @@
-﻿namespace BeltsBrakes.Controllers;
+﻿using GrpcClients;
+
+namespace BeltsBrakes.Controllers;
 
 internal class CarHornController
 {
     public CarHornController(
         SoundPlayerClient soundPlayerClient,
-        WheelAndPedalsClient wnpClient)
+        DrivingClient drivingClient)
     {
         _soundPlayerClient = soundPlayerClient;
         _soundPlayerClient.PlaybackFinished += (s, e) =>
         {
-            _isPlayingHornSound = false;
+            if (e.StartsWith("car-horn"))
+            {
+                _isPlayingHornSound = false;
+            }
         };
 
-        _wnpClient = wnpClient;
-        _wnpClient.DataUpdated += (s, e) =>
+        _drivingClient = drivingClient;
+        _drivingClient.DataUpdated += (s, e) =>
         {
-            if (_wnpClient.IsStreamingData)
+            if (_drivingClient.IsStreamingData && _soundPlayerClient.IsAvailable && !_isPlayingHornSound)
             {
-                if (e.TopRightButton2.IsPressed && !_isButtonPressed)
+                if (e.TopRightButton2.IsPressed && !_isHornButtonPressed)
                 {
-                    if (_soundPlayerClient.IsAvailable && !_isPlayingHornSound)
-                    {
-                        _ = _soundPlayerClient.PlayFile("car-horn.mp3");
-                        _isPlayingHornSound = true;
-                    }
+                    _soundPlayerClient.DeviceId = string.Empty; // default device
+                    _ = _soundPlayerClient.PlayFile("car-horn.mp3");
+                    _isPlayingHornSound = true;
                 }
 
-                _isButtonPressed = e.TopRightButton2.IsPressed;
+                _isHornButtonPressed = e.TopRightButton2.IsPressed;
             }
         };
     }
@@ -34,9 +37,9 @@ internal class CarHornController
     #region Internal
 
     readonly SoundPlayerClient _soundPlayerClient;
-    readonly WheelAndPedalsClient _wnpClient;
+    readonly DrivingClient _drivingClient;
 
-    bool _isButtonPressed = false;
+    bool _isHornButtonPressed = false;
     bool _isPlayingHornSound = false;
 
     #endregion

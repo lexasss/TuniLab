@@ -2,7 +2,7 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
 public sealed class DrivingClient 
     : Client<Driving.Dispatcher.DispatcherClient, Driving.Event>

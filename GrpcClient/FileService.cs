@@ -1,6 +1,6 @@
 ﻿using Grpc.Core;
 
-namespace Dashboard;
+namespace GrpcClients;
 
 internal static class FileService
 {
@@ -13,12 +13,12 @@ internal static class FileService
         {
             Metadata = new Common.FileMetadata
             {
-                FileName = System.IO.Path.GetFileName(filename),
-                ContentType = $"{type}/{System.IO.Path.GetExtension(filename)}"
+                FileName = Path.GetFileName(filename),
+                ContentType = $"{type}/{Path.GetExtension(filename)}"
             }
         });
 
-        await using var file = System.IO.File.OpenRead(filename);
+        await using var file = File.OpenRead(filename);
 
         var buffer = new byte[Common.Constants.FILE_CHUNK_SIZE];
 

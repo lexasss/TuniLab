@@ -12,6 +12,7 @@ service Dispatcher {
 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
+	rpc SetChannelMap (ChannelMap) returns (google.protobuf.Empty) {}
 	rpc Play (SoundDescription) returns (Common.Bool) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
@@ -29,9 +30,14 @@ message Devices {
 	repeated Device items = 1;
 }
 
+// Gains for each channel, or empty array to omit mapping
+message ChannelMap {
+	repeated float items = 1;
+}
+
 message Event {
 	oneof value {
-		bool isPlaybackFinished = 1;
+		string playbackFinished = 1;
 	}
 }
 

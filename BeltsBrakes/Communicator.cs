@@ -1,4 +1,6 @@
-﻿namespace BeltsBrakes;
+﻿using GrpcClients;
+
+namespace BeltsBrakes;
 
 internal class Communicator
 {
@@ -9,7 +11,7 @@ internal class Communicator
         CarlaClient carlaClient,
         TensionRClient tensionRClient,
         ScreenClient screenClient,
-        WheelAndPedalsClient drivingClient,
+        DrivingClient drivingClient,
         SoundPlayerClient soundPlayerClient)
     {
         _carla = carlaClient;
@@ -97,7 +99,7 @@ internal class Communicator
     readonly CarlaClient _carla;
     readonly TensionRClient _tensionR;
     readonly ScreenClient _screen;
-    readonly WheelAndPedalsClient _driving;
+    readonly DrivingClient _driving;
     readonly SoundPlayerClient _soundPlayer;
 
     readonly COMUtils _comUtils = new();

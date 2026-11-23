@@ -5,7 +5,9 @@ using System.Runtime.InteropServices;
 
 namespace Server.SoundPlayer;
 
-public sealed class ChannelRouter : IWaveProvider
+public sealed class ChannelRouter :
+    IWaveProvider,
+    IDirectionalSoundSource
 {
     public WaveFormat WaveFormat { get; }
 
@@ -33,6 +35,15 @@ public sealed class ChannelRouter : IWaveProvider
             _enabledChannels.Length);
     }
 
+    // DSS
+    public void SetChannelMap(float[] mapping)
+    {
+        lock (_mapping)
+        {
+            _mapping = (float[])mapping.Clone();
+        }
+    }
+
     public int Read(Span<byte> buffer)
     {
         int samplesRequested = buffer.Length / WaveFormat.Channels / sizeof(float);
@@ -45,7 +56,6 @@ public sealed class ChannelRouter : IWaveProvider
         int samplesRead = _source.Read(monoBuffer);
 
         int outputIndex = 0;
-        var zero = new FloatBytes() { Float = 0f };
 
         for (int frame = 0; frame < samplesRead; frame++)
         {
@@ -55,14 +65,23 @@ public sealed class ChannelRouter : IWaveProvider
             {
                 if (!_enabledChannels[channel])
                 {
-                    buffer[outputIndex++] = zero.B1;
-                    buffer[outputIndex++] = zero.B2;
-                    buffer[outputIndex++] = zero.B3;
-                    buffer[outputIndex++] = zero.B4;
+                    buffer[outputIndex++] = ZERO.B1;
+                    buffer[outputIndex++] = ZERO.B2;
+                    buffer[outputIndex++] = ZERO.B3;
+                    buffer[outputIndex++] = ZERO.B4;
                 }
                 else
                 {
-                    var fb = new FloatBytes() { Float = sample };
+                    var channelSample = sample;
+                    lock (_mapping)
+                    {
+                        if (_mapping.Length == _enabledChannels.Length)
+                        {
+                            channelSample = sample * _mapping[channel];
+                        }
+                    }
+
+                    var fb = new FloatBytes() { Float = channelSample };
                     buffer[outputIndex++] = fb.B1;
                     buffer[outputIndex++] = fb.B2;
                     buffer[outputIndex++] = fb.B3;
@@ -170,8 +189,62 @@ public sealed class ChannelRouter : IWaveProvider
         public byte B4;
     }
 
+    readonly FloatBytes ZERO = new() { Float = 0f };
+
     readonly ISampleProvider _source;
     readonly bool[] _enabledChannels;
+
+    float[] _mapping = [];
+
+    /// <summary>
+    /// Fills the map with gains
+    /// </summary>
+    /// <param name="direction">0..1</param>
+    /// <param name="map">the buffer to fill</param>
+    private static void DirectionToMap(float direction, float[] map)
+    {
+        if (map.Length < 2)
+            return;
+
+        if (map.Length == 2)
+        {
+            if (direction > 0.5f)
+                direction = 1f - direction;
+
+            map[0] = direction <= 0.25f ? 1 : (1f - 2f * direction) * 2;
+            map[1] = direction >= 0.25f ? 1 : direction * 4;
+            return;
+        }
+
+        int n = map.Length;
+
+        // to emulate cyclicity, we need two extra components, with ±n to the direction
+        var directionP0 = direction * n;
+        var directionP1 = (direction + 1f) * n;
+        var directionP2 = (direction - 1f) * n;
+
+        // The map is a normal distribution scaled, shifted down, and cut from top and bottom:
+        //      ____
+        //     /    \
+        // ¯¯¯¯      ¯¯¯¯
+        // Desmos:
+        // https://www.desmos.com/calculator/s4dj0lchie
+        //
+        // With 2s^2 = 0.685, scale = 2.162 and offset = 0.5,
+        // the top flat area ranges from -0.5 to 0.5, the slop length is 0.5
+
+        double doubleQ2 = 0.684;
+        double scale = 2.162;
+        double offset = 0.5;
+
+        for (int i = 0; i < n; i++)
+        {
+            var a0 = Math.Exp(-Math.Pow(i - directionP0, 2) / doubleQ2);
+            var a1 = Math.Exp(-Math.Pow(i - directionP1, 2) / doubleQ2);
+            var a2 = Math.Exp(-Math.Pow(i - directionP2, 2) / doubleQ2);
+            map[i] = (float)Math.Clamp((a0 + a1 + a2) * scale - offset, 0, 1);
+        }
+    }
 
     #endregion
 }

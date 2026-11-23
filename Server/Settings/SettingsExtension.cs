@@ -15,7 +15,7 @@ public static class SettingsExtensions
             .Bind(configuration)
             .ValidateOnStart();
 
-       // Register the root Settings object
+        // Register the root Settings object
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<Settings>>().Value);
 
         // Register individual settings classes

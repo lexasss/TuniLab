@@ -2,7 +2,7 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
 public sealed class ScreenClient 
     : Client<Screen.Dispatcher.DispatcherClient, Screen.Event>
@@ -53,12 +53,12 @@ public sealed class ScreenClient
             : response.Value;
     }
 
-    public void Hide(string id)
+    public void Hide(string? id = null)
     {
         if (!_isAvailable)
             return;
 
-        _ = _client.Close(new Common.String { Value = id });
+        _ = _client.Close(new Common.String { Value = id ?? string.Empty });
     }
 
     public async Task<Common.UploadResult> UploadFile(string filename)

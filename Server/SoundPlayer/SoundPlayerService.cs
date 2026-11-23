@@ -73,6 +73,16 @@ public class SoundPlayerService :
         await _baseService.ReadEvents(request, responseStream, context);
     }
 
+    public override Task<Empty> SetChannelMap(
+        Proto.ChannelMap request,
+        ServerCallContext context)
+    {
+        _channelMap = request.Items.ToArray();
+        _tonePlayer?.Directional?.SetChannelMap(_channelMap);
+
+        return Common.Awaitable.Empty;
+    }
+
     public override Task<Common.Bool> Play(
         Proto.SoundDescription request,
         ServerCallContext context)
@@ -86,6 +96,7 @@ public class SoundPlayerService :
         {
             _tonePlayer?.Dispose();
             _tonePlayer = PlayTone(_soundPlayer, request.Tone);
+            _tonePlayer.Directional?.SetChannelMap(_channelMap);
             result = true;
         }
         else if (request.SoundCase == Proto.SoundDescription.SoundOneofCase.FileName)
@@ -154,7 +165,7 @@ public class SoundPlayerService :
 
     #region Internal
 
-    static readonly string[] _supportedAudioFormats = [".wav"];
+    static readonly string[] _supportedAudioFormats = [".wav", ".mp3", ".aiff", ".aif"];
 
     readonly ILogger _logger;
     readonly Tools.Service<Proto.Event> _baseService;
@@ -163,6 +174,8 @@ public class SoundPlayerService :
     TonePlayer? _tonePlayer;
     AudioFileReader? _audioFile;
     CancellationTokenSource? _toneCancellationSource;
+
+    float[] _channelMap = [];
 
     private static async Task<Proto.Device[]> GetSoundDevices()
     {
@@ -209,7 +222,7 @@ public class SoundPlayerService :
         {
             _logger.LogInformation("Playback finished");
             _baseService.Publish(new Proto.Event {
-                IsPlaybackFinished = true
+                PlaybackFinished = System.IO.Path.GetFileName(_audioFile?.FileName) ?? string.Empty
             });
         };
 
@@ -243,7 +256,7 @@ public class SoundPlayerService :
 
                 _logger.LogInformation("Tone finished");
                 _baseService.Publish(new Proto.Event {
-                    IsPlaybackFinished = true
+                    PlaybackFinished = tone.ToneType.ToString()
                 });
 
                 _toneCancellationSource?.Dispose();
@@ -268,7 +281,7 @@ public class SoundPlayerService :
         if (string.IsNullOrEmpty(filePath))
             return null;
 
-        AudioFileReader? audioFile = null;
+        AudioFileReader ? audioFile = null;
 
         try
         {

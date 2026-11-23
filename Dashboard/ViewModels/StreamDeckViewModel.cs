@@ -129,7 +129,6 @@ public partial class StreamDeckViewModel : ObservableObject
     [RelayCommand]
     private void SetKey()
     {
-
         _client.SetKey(new StreamDeck.Key()
         {
             Id = KeyId.Equals(ALL_KEYS) ? -1 : int.Parse(KeyId),

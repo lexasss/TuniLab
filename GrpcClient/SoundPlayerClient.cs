@@ -2,14 +2,14 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace BeltsBrakes;
+namespace GrpcClients;
 
 public sealed class SoundPlayerClient 
     : Client<SoundPlayer.Dispatcher.DispatcherClient, SoundPlayer.Event>
 {
     public string DeviceId { get; set; } = string.Empty;
 
-    public event EventHandler? PlaybackFinished;
+    public event EventHandler<string>? PlaybackFinished;
 
     public SoundPlayerClient(IOptions<AppSettings> appSettings)
         : base(appSettings, (int)Common.Ports.SoundPlayer)
@@ -29,6 +29,14 @@ public sealed class SoundPlayerClient
         return _isAvailable
             ? _client.GetDevices(new Empty())
             : new SoundPlayer.Devices();
+    }
+
+    public void SetChannelMap(float[] map)
+    {
+        var channelMap = new SoundPlayer.ChannelMap();
+        foreach (var v in map)
+            channelMap.Items.Add(v);
+        _client.SetChannelMap(channelMap);
     }
 
     public async Task<bool> PlayFile(string filename)
@@ -64,6 +72,17 @@ public sealed class SoundPlayerClient
         _ = _client.Stop(new Empty());
     }
 
+    public async Task<Common.UploadResult> UploadFile(string filename)
+    {
+        if (!_isAvailable)
+            return new Common.UploadResult() {
+                ErrorMessage = "Service unavailable"
+            };
+
+        using var call = _client.UploadFile();
+        return await FileService.UploadFile(call, filename, "audio");
+    }
+
     #region Internal
 
     protected override void Initialize()
@@ -85,8 +104,8 @@ public sealed class SoundPlayerClient
     {
         switch (evt.ValueCase)
         {
-            case SoundPlayer.Event.ValueOneofCase.IsPlaybackFinished:
-                PlaybackFinished?.Invoke(this, EventArgs.Empty);
+            case SoundPlayer.Event.ValueOneofCase.PlaybackFinished:
+                PlaybackFinished?.Invoke(this, evt.PlaybackFinished);
                 break;
             default:
                 return false;

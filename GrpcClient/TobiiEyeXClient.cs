@@ -2,24 +2,29 @@
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
-namespace Dashboard.GrpcClients;
+namespace GrpcClients;
 
-public sealed class LeapMotionClient 
-    : Client<LeapMotion.Dispatcher.DispatcherClient, LeapMotion.Event>
+public sealed class TobiiEyeXClient
+    : Client<Gaze.Dispatcher.DispatcherClient, Gaze.Event>
 {
-    public event EventHandler<bool>? ConnectionChanged;
-    public event EventHandler<bool>? HandVisibilityChanged;
-    public event EventHandler<bool>? HandProximityChanged;
-    public event EventHandler<LeapMotion.Sample>? HandLocationChanged;
+    public event EventHandler<bool>? ConnectionStatusChanged;
+    public event EventHandler<bool>? CalibrationStageChanged;
+    public event EventHandler<bool>? CalibrationStatusChanged;
+    public event EventHandler<bool>? TrackingStatusChanged;
+    public event EventHandler<Gaze.Sample>? Sample;
+
+    public bool IsCalibrating => _isCalibrating;
+    public bool IsCalibrated => _isCalibrated;
+    public bool IsTracking => _isTracking;
 
     public bool IsConnected => _isConnected;
     public bool IsStreamingData => _isStreamingData;
     public bool IsLogging => _isLogging;
 
-    public LeapMotionClient(IOptions<AppSettings> appSettings)
-        : base(appSettings, (int)Common.Ports.LeapMotion)
+    public TobiiEyeXClient(IOptions<AppSettings> appSettings)
+        : base(appSettings, (int)Common.Ports.TobiiEyeX)
     {
-        _client = new LeapMotion.Dispatcher.DispatcherClient(_channel);
+        _client = new Gaze.Dispatcher.DispatcherClient(_channel);
     }
 
     public override void Dispose()
@@ -48,17 +53,6 @@ public sealed class LeapMotionClient
         _ = _client.Stop(new Empty());
     }
 
-    public void Configure(LeapMotion.ConfigType config)
-    {
-        if (!_isAvailable)
-            return;
-
-        _client.Configure(new LeapMotion.Configuration()
-        {
-            Config = config
-        });
-    }
-
     public void SetLoggingEnabled(bool enabled)
     {
         if (!_isAvailable)
@@ -68,7 +62,7 @@ public sealed class LeapMotionClient
         {
             _isLogging = _client.SetLogFileName(new Common.String() {
                 Value = enabled
-                    ? "leap.tsv"
+                    ? "eyex.tsv"
                     : string.Empty
             }).Value;
         }
@@ -76,14 +70,22 @@ public sealed class LeapMotionClient
 
     #region Internal
 
-    AsyncServerStreamingCall<LeapMotion.Sample>? _dataCall;
+    bool _isCalibrating = false;
+    bool _isCalibrated = false;
+    bool _isTracking = false;
 
+    AsyncServerStreamingCall<Gaze.Sample>? _dataCall;
+        
     protected override void Initialize()
     {
         _isAvailable = _client.IsAvailable(new Empty()).Value;
         if (_isAvailable)
         {
             _isConnected = _client.IsConnected(new Empty()).Value;
+            _isCalibrating = _client.IsCalibrating(new Empty()).Value;
+            _isCalibrated = _client.IsCalibrated(new Empty()).Value;
+            _isTracking = _client.IsTracking(new Empty()).Value;
+
             _isStreamingData = _client.IsStreamingData(new Empty()).Value;
             _isLogging = _client.IsLogging(new Empty()).Value;
 
@@ -102,8 +104,7 @@ public sealed class LeapMotionClient
             while (await responseStream.MoveNext(_dataCts.Token))
             {
                 var data = responseStream.Current;
-
-                HandLocationChanged?.Invoke(this, data);
+                Sample?.Invoke(this, data);
             }
         }
         catch (RpcException ex)
@@ -116,30 +117,37 @@ public sealed class LeapMotionClient
         }
     }
 
-    protected override IAsyncStreamReader<LeapMotion.Event> GetEventStream()
+    protected override IAsyncStreamReader<Gaze.Event> GetEventStream()
     {
         _eventsCall = _client.ReadEvents(new Empty());
         return _eventsCall.ResponseStream;
     }
 
-    protected override bool HandleEvent(LeapMotion.Event evt)
+    protected override bool HandleEvent(Gaze.Event evt)
     {
         switch (evt.ValueCase)
         {
-            case LeapMotion.Event.ValueOneofCase.IsConnected:
-                _isConnected = evt.IsConnected;
-                ConnectionChanged?.Invoke(this, _isConnected);
-                if (!_isConnected)
+            case Gaze.Event.ValueOneofCase.Status:
+                if (_isConnected != evt.Status.IsConnected)
                 {
-                    HandVisibilityChanged?.Invoke(this, false);
-                    HandProximityChanged?.Invoke(this, false);
+                    _isConnected = evt.Status.IsConnected;
+                    ConnectionStatusChanged?.Invoke(this, _isConnected);
                 }
-                break;
-            case LeapMotion.Event.ValueOneofCase.IsHandVisible:
-                HandVisibilityChanged?.Invoke(this, evt.IsHandVisible);
-                break;
-            case LeapMotion.Event.ValueOneofCase.IsHandClose:
-                HandProximityChanged?.Invoke(this, evt.IsHandClose);
+                if (_isCalibrating != evt.Status.IsCalibrating)
+                {
+                    _isCalibrating = evt.Status.IsCalibrating;
+                    CalibrationStageChanged?.Invoke(this, _isCalibrating);
+                }
+                if (_isCalibrated != evt.Status.IsCalibrated)
+                {
+                    _isCalibrated = evt.Status.IsCalibrated;
+                    CalibrationStatusChanged?.Invoke(this, _isCalibrated);
+                }
+                if (_isTracking != evt.Status.IsTracking)
+                {
+                    _isTracking = evt.Status.IsTracking;
+                    TrackingStatusChanged?.Invoke(this, _isTracking);
+                }
                 break;
             default:
                 return false;
