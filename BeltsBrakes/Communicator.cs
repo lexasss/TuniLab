@@ -12,12 +12,14 @@ internal class Communicator
         TensionRClient tensionRClient,
         ScreenClient screenClient,
         DrivingClient drivingClient,
-        SoundPlayerClient soundPlayerClient)
+        SoundPlayerClient soundPlayerClient,
+        StreamDeckClient streamDeckClient)
     {
         _carla = carlaClient;
         _screen = screenClient;
         _driving = drivingClient;
         _soundPlayer = soundPlayerClient;
+        _streamDeckClient = streamDeckClient;
 
         _tensionR = tensionRClient;
         _tensionR.ConnectionChanged += (s, e) =>
@@ -101,6 +103,7 @@ internal class Communicator
     readonly ScreenClient _screen;
     readonly DrivingClient _driving;
     readonly SoundPlayerClient _soundPlayer;
+    readonly StreamDeckClient _streamDeckClient;
 
     readonly COMUtils _comUtils = new();
 

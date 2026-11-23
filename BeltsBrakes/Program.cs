@@ -45,6 +45,7 @@ internal class Program
         try
         {
             communicator = host.Services.GetRequiredService<Communicator>();
+            /*
             if (!SetBeltComPort(communicator))
                 return;
 
@@ -55,7 +56,7 @@ internal class Program
             {
                 _logger.LogError("Failed to prepare the system");
                 return;
-            }
+            }*/
         }
         catch (Exception ex)
         {
@@ -63,9 +64,9 @@ internal class Program
             return;
         }
 
-        var beltController = host.Services.GetRequiredService<BeltController>();
-        var speedWarnSignController = host.Services.GetRequiredService<SpeedWarnSignController>();
-        var carHornController = host.Services.GetRequiredService<CarHornController>();
+        //var beltController = host.Services.GetRequiredService<BeltController>();
+        //var speedWarnSignController = host.Services.GetRequiredService<SpeedWarnSignController>();
+        //var carHornController = host.Services.GetRequiredService<CarHornController>();
         var sireneController = host.Services.GetRequiredService<SireneController>();
 
         communicator.Start();

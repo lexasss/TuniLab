@@ -9,62 +9,59 @@ internal class SireneController
         StreamDeckClient streamDeckClient)
     {
         _soundPlayerClient = soundPlayerClient;
-        _soundPlayerClient.AvailabilityChanged += (s, e) =>
-        {
-            var devices = _soundPlayerClient.GetDevices();
-            var motu = devices.Items.FirstOrDefault(d => d.ChannelCount > 2);
-            if (motu != null)
-            {
-                _motuDeviceId = motu.Id;
-                _channelCount = motu.ChannelCount;
-                Console.WriteLine($"Playing on {motu.Name}");
-            }
-            else
-            {
-                Console.WriteLine("No multichannel sound devices found:");
-                foreach (var device in devices.Items)
-                    Console.WriteLine($" - {device.Name}");
-            }
-        };
-        _soundPlayerClient.PlaybackFinished += (s, e) =>
-        {
-            if (e.StartsWith("Triangle"))
-            {
-                _isPlayingSireneSound = false;
-            }
-        };
+        if (_soundPlayerClient.IsAvailable)
+            InitSound();
+        else
+            _soundPlayerClient.AvailabilityChanged += (s, e) => InitSound();
 
         _streamDeckClient = streamDeckClient;
+        if (_streamDeckClient.IsAvailable)
+            InitStreamDeck();
+        else
+            _streamDeckClient.AvailabilityChanged += (s, e) => InitStreamDeck();
+
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
             if (e.Id == 0 && e.IsPressed && !_isPlayingSireneSound)
             {
                 _soundPlayerClient.DeviceId = _motuDeviceId;
-                _ = _soundPlayerClient.PlayTone(new SoundPlayer.ToneDescription()
+                var tone = new SoundPlayer.ToneDescription()
                 {
                     ToneType = SoundPlayer.ToneType.Triangle,
                     Frequency = 440,
                     Gain = 1,
                     PulseDuration = 0,
                     TotalDuration = 0
-                });
+                };
+                tone.EnabledChannels.Clear();
+                for (int i = 0; i < _channelCount; i++)
+                    tone.EnabledChannels.Add(i < Math.Min(16, _channelCount)); // wall-mounted MOTU has only 16 speakers connected
+
+                float direction = 0;
+                float[] map = new float[_channelCount];
+                DirectionToMap(direction, map);
+                _soundPlayerClient.SetChannelMap(map);
+
+                _ = _soundPlayerClient.PlayTone(tone);
 
                 _isPlayingSireneSound = true;
 
                 Task.Run(async () =>
                 {
-                    float direction = 0;
-                    float[] map = new float[_channelCount];
-
                     while (direction < 1f)
                     {
+                        await Task.Delay(40);
+                        direction += 0.01f;
                         DirectionToMap(direction, map);
+                        /*Console.Write($"D = {direction:F2}");
+                        foreach (var v in map.Take(16))
+                            Console.Write($" {v:F3}");
+                        Console.WriteLine();*/
                         _soundPlayerClient.SetChannelMap(map);
-                        direction += 0.02f;
-                        await Task.Delay(80);
                     }
 
                     _soundPlayerClient.Stop();
+                    _isPlayingSireneSound = false;
                 });
             }
         };
@@ -77,6 +74,68 @@ internal class SireneController
     int _channelCount = 2;
 
     bool _isPlayingSireneSound = false;
+
+    private void InitSound()
+    {
+        var allDevices = _soundPlayerClient.GetDevices().Items;
+        var multichannelDevices = allDevices
+            .Where(d => d.ChannelCount > 2)
+            .ToArray();
+
+        SoundPlayer.Device? motu = null;
+        if (multichannelDevices.Length > 1)
+        {
+            motu = SelectDevice(multichannelDevices);
+        }
+        else if (multichannelDevices.Length == 1)
+        {
+            motu = multichannelDevices.First();
+        }
+        else
+        {
+            Console.WriteLine("No multichannel sound devices found, using the default device, one of:");
+            foreach (var device in allDevices)
+                Console.WriteLine($" - {device.Name}");
+        }
+
+        if (motu != null)
+        {
+            _motuDeviceId = motu.Id;
+            _channelCount = motu.ChannelCount;
+            Console.WriteLine($"Playing on {motu.Name}");
+        }
+    }
+
+    private void InitStreamDeck()
+    {
+        _streamDeckClient.SetKey(new StreamDeck.Key()
+        {
+            Id = 0,
+            FileNameOrColor = "128,196,255"
+        });
+    }
+
+    private static SoundPlayer.Device? SelectDevice(SoundPlayer.Device[] devices)
+    {
+        Console.WriteLine("Multichannel sound ports:");
+        for (int i = 0; i < devices.Length; i++)
+        {
+            var device = devices[i];
+            Console.WriteLine($"{i + 1}. {device.Name}: {device.ChannelCount} channels");
+        }
+        Console.Write("Type the device ID: ");
+        var input = Console.ReadLine()?.Trim();
+        if (int.TryParse(input, out int id) && id > 0 && id <= devices.Length)
+        {
+            return devices[id - 1];
+        }
+        else
+        {
+            Console.WriteLine("Unknown ID, continue with the default device.");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Fills the map with gains
     /// </summary>
@@ -123,7 +182,7 @@ internal class SireneController
             var a0 = Math.Exp(-Math.Pow(i - directionP0, 2) / doubleQ2);
             var a1 = Math.Exp(-Math.Pow(i - directionP1, 2) / doubleQ2);
             var a2 = Math.Exp(-Math.Pow(i - directionP2, 2) / doubleQ2);
-            map[i] = (float)Math.Clamp((a0 + a1 + a2) * scale - offset, 0, 1);
+            map[i] = (float)Math.Pow(Math.Clamp((a0 + a1 + a2) * scale - offset, 0, 1), 2);
         }
     }
 }

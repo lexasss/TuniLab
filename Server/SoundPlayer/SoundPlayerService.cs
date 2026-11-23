@@ -96,7 +96,6 @@ public class SoundPlayerService :
         {
             _tonePlayer?.Dispose();
             _tonePlayer = PlayTone(_soundPlayer, request.Tone);
-            _tonePlayer.Directional?.SetChannelMap(_channelMap);
             result = true;
         }
         else if (request.SoundCase == Proto.SoundDescription.SoundOneofCase.FileName)
@@ -241,9 +240,10 @@ public class SoundPlayerService :
             tone.PulseDuration,
             tone.EnabledChannels.ToArray()
         );
-
+        
         _toneCancellationSource = new CancellationTokenSource();
 
+        tonePlayer.Directional?.SetChannelMap(_channelMap);
         tonePlayer.Start();
         
         if (tone.TotalDuration > 0)
