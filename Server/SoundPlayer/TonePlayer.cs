@@ -15,10 +15,10 @@ public class TonePlayer : IDisposable
         double frequency,
         double gain,
         int duration,
-        bool[] enabledChannels)
+        bool[] channelEnablingMap)
     {
         _signalGenerator = new SignalGenerator(48000,
-            enabledChannels.Length > 0 ? 1 : 2) // mono if we are routing channels, otherwise stereo
+            channelEnablingMap.Length > 0 ? 1 : 2) // mono if we are routing channels, otherwise stereo
         {
             Gain = gain,
             Frequency = frequency,
@@ -40,11 +40,11 @@ public class TonePlayer : IDisposable
 
         _player = player;
 
-        if (enabledChannels.Length == _player.OutputWaveFormat.Channels)
+        if (channelEnablingMap.Length == _player.OutputWaveFormat.Channels)
         {
             _channelRouter = new ChannelRouter(
                 _signalGenerator,
-                enabledChannels,
+                channelEnablingMap,
                 player.DeviceMixFormat);
         }
     }

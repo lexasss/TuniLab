@@ -13,14 +13,14 @@ public sealed class ChannelRouter :
 
     public ChannelRouter(
         ISampleProvider source,
-        bool[] enabledChannels,
+        bool[] channelEnablingMap,
         WaveFormat? format = null)
     {
         if (source == null)
             throw new ArgumentNullException(nameof(source));
 
-        if (enabledChannels == null)
-            throw new ArgumentNullException(nameof(enabledChannels));
+        if (channelEnablingMap == null)
+            throw new ArgumentNullException(nameof(channelEnablingMap));
 
         if (source.WaveFormat.Channels != 1)
             throw new ArgumentException(
@@ -28,11 +28,12 @@ public sealed class ChannelRouter :
                 nameof(source));
 
         _source = source;
-        _enabledChannels = (bool[])enabledChannels.Clone();
+        _channelEnablingMap = (bool[])channelEnablingMap.Clone();
+        _enabledChannelCount = _channelEnablingMap.Count(true);
 
         WaveFormat = format ?? WaveFormat.CreateIeeeFloatWaveFormat(
             _source.WaveFormat.SampleRate,
-            _enabledChannels.Length);
+            _channelEnablingMap.Length);
     }
 
     // DSS
@@ -61,9 +62,11 @@ public sealed class ChannelRouter :
         {
             float sample = monoBuffer[frame];
 
-            for (int channel = 0; channel < _enabledChannels.Length; channel++)
+            for (int channel = 0, mapIndex = 0; 
+                channel < _channelEnablingMap.Length;
+                channel++)
             {
-                if (!_enabledChannels[channel])
+                if (!_channelEnablingMap[channel])
                 {
                     buffer[outputIndex++] = ZERO.B1;
                     buffer[outputIndex++] = ZERO.B2;
@@ -75,9 +78,9 @@ public sealed class ChannelRouter :
                     var channelSample = sample;
                     lock (_mapping)
                     {
-                        if (_mapping.Length == _enabledChannels.Length)
+                        if (_mapping.Length == _enabledChannelCount)
                         {
-                            channelSample = sample * _mapping[channel];
+                            channelSample = sample * _mapping[mapIndex++];
                         }
                     }
 
@@ -90,7 +93,7 @@ public sealed class ChannelRouter :
             }
         }
 
-        return samplesRead * _enabledChannels.Length * sizeof(float);
+        return samplesRead * _channelEnablingMap.Length * sizeof(float);
     }
 
     public static async Task Test()
@@ -115,8 +118,8 @@ public sealed class ChannelRouter :
 
         for (int i = 0; i < channelCount; i++)
         {
-            bool[] selectedChannels = new bool[channelCount];
-            selectedChannels[i] = true;
+            bool[] channelEnablingMap = new bool[channelCount];
+            channelEnablingMap[i] = true;
 
             var signal = new SignalGenerator(sampleRate, 1)
             {
@@ -127,7 +130,7 @@ public sealed class ChannelRouter :
 
             var router = new ChannelRouter(
                 signal,
-                selectedChannels,
+                channelEnablingMap,
                 soundPlayer.DeviceMixFormat);
 
             if (!soundPlayer.IsFormatSupported(router.WaveFormat, out WaveFormat bmf))
@@ -192,7 +195,8 @@ public sealed class ChannelRouter :
     readonly FloatBytes ZERO = new() { Float = 0f };
 
     readonly ISampleProvider _source;
-    readonly bool[] _enabledChannels;
+    readonly bool[] _channelEnablingMap;
+    readonly int _enabledChannelCount;
 
     float[] _mapping = [];
 

@@ -57,7 +57,7 @@ message ToneDescription {
 	double gain = 5;
 	int32 pulseDuration = 6;
 	int32 totalDuration = 7;
-	repeated bool enabledChannels = 8;
+	repeated bool channelEnablingMap = 8;
 }
 
 message SoundDescription {

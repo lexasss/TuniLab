@@ -238,7 +238,7 @@ public class SoundPlayerService :
             tone.Frequency,
             tone.Gain,
             tone.PulseDuration,
-            tone.EnabledChannels.ToArray()
+            tone.ChannelEnablingMap.ToArray()
         );
         
         _toneCancellationSource = new CancellationTokenSource();

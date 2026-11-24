@@ -160,7 +160,7 @@ public partial class SoundPlayerViewModel : ObservableObject
             };
 
             foreach (var channel in Channels)
-                tone.EnabledChannels.Add(channel.IsChecked);
+                tone.ChannelEnablingMap.Add(channel.IsChecked);
 
             await _client.PlayTone(tone);
         }
@@ -205,13 +205,13 @@ public partial class SoundPlayerViewModel : ObservableObject
             {
                 for (int i = 0; i < Device?.ChannelCount; i++)
                 {
-                    tone.EnabledChannels.Clear();
+                    tone.ChannelEnablingMap.Clear();
                     for (int j = 0; j < Device?.ChannelCount; j++)
                     {
-                        tone.EnabledChannels.Add(i == j && Channels[j].IsChecked);
+                        tone.ChannelEnablingMap.Add(i == j && Channels[j].IsChecked);
                     }
 
-                    if (!tone.EnabledChannels.Any(c => c))
+                    if (!tone.ChannelEnablingMap.Any(c => c))
                         continue;
 
                     await _client.PlayTone(tone);
