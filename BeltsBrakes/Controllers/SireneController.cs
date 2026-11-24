@@ -22,22 +22,26 @@ internal class SireneController
 
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
-            if (_isPlayingSireneSound)
-                return;
-
-            if (e.Id == 0 && e.IsPressed)
-                PlayCircularSound();
+            if (e.Id == 0 && e.IsPressed && !_isPlayingWallsSound)
+                PlayWallsSound();
+            else if (e.Id == 1 && e.IsPressed && !_isPlayingCabinSound)
+                PlayCabinSound();
         };
     }
 
     readonly SoundPlayerClient _soundPlayerClient;
     readonly StreamDeckClient _streamDeckClient;
     
-    string _motuDeviceId = string.Empty;
-    int _soundChannelCount = 2;
-    bool[] _channelEnablingMap = [];
+    string _motuWallsDeviceId = string.Empty;
+    int _motuWallsChannelCount = 2;
+    bool[] _motuWallsChannelEnablingMap = [];
+    bool _isPlayingWallsSound = false;
 
-    bool _isPlayingSireneSound = false;
+    string _motuCabinDeviceId = string.Empty;
+    int _motuCabinChannelCount = 2;
+    bool[] _motuCabinChannelEnablingMap = [];
+    bool _isPlayingCabinSound = false;
+
 
     private void InitSound()
     {
@@ -46,14 +50,14 @@ internal class SireneController
             .Where(d => d.ChannelCount > 2)
             .ToArray();
 
-        SoundPlayer.Device? motu = null;
-        if (multichannelDevices.Length > 1)
+        SoundPlayer.Device? motuCabin = null;
+        SoundPlayer.Device? motuWalls = null;
+
+        if (multichannelDevices.Length > 0)
         {
-            motu = SelectSoundDevice(multichannelDevices);
-        }
-        else if (multichannelDevices.Length == 1)
-        {
-            motu = multichannelDevices.First();
+            (motuCabin, motuWalls) = SelectSoundDevice(multichannelDevices);
+            Console.WriteLine(motuCabin == null ? "No cabin speakers" : $"Cabin speakers on {motuCabin.Name}");
+            Console.WriteLine(motuWalls == null ? "No walls speakers" : $"Walls speakers on {motuWalls.Name}");
         }
         else
         {
@@ -62,39 +66,69 @@ internal class SireneController
                 Console.WriteLine($" - {device.Name}");
         }
 
-        if (motu != null)
+        if (motuCabin != null)
         {
-            _motuDeviceId = motu.Id;
-            _soundChannelCount = motu.ChannelCount;
+            _motuCabinDeviceId = motuCabin.Id;
+            _motuCabinChannelCount = motuCabin.ChannelCount;
 
-            _channelEnablingMap = new bool[_soundChannelCount];
-            for (int i = 0; i < _soundChannelCount; i++)
-                _channelEnablingMap[i] = i < Math.Min(16, _soundChannelCount); // wall-mounted MOTU has only 16 speakers connected
+            _motuCabinChannelEnablingMap = new bool[_motuCabinChannelCount];
+            for (int i = 0; i < _motuCabinChannelCount; i++)
+                _motuCabinChannelEnablingMap[i] = i < Math.Min(8, _motuCabinChannelCount); // only 8 wall speakers
+        }
 
-            Console.WriteLine($"Playing on {motu.Name}");
+
+        if (motuWalls != null)
+        {
+            _motuWallsDeviceId = motuWalls.Id;
+            _motuWallsChannelCount = motuWalls.ChannelCount;
+
+            _motuWallsChannelEnablingMap = new bool[_motuWallsChannelCount];
+            for (int i = 0; i < _motuWallsChannelCount; i++)
+                _motuWallsChannelEnablingMap[i] = i < Math.Min(16, _motuWallsChannelCount); // only 16 wall speakers
         }
     }
 
-    private static SoundPlayer.Device? SelectSoundDevice(SoundPlayer.Device[] devices)
+    private static (SoundPlayer.Device?, SoundPlayer.Device?) SelectSoundDevice(
+        SoundPlayer.Device[] multichannelDevices)
     {
-        Console.WriteLine("Multichannel sound ports:");
-        for (int i = 0; i < devices.Length; i++)
+        var motuCabin = multichannelDevices.FirstOrDefault(x => x.Name.Contains("(MOTU Pro Audio)"));
+        var motuWalls = multichannelDevices.FirstOrDefault(x => x.Name.Contains("(2- MOTU Pro Audio)"));
+
+        int Prompt(string target)
         {
-            var device = devices[i];
-            Console.WriteLine($"{i + 1}. {device.Name}: {device.ChannelCount} channels");
+            Console.WriteLine("Multichannel sound devices:");
+            for (int i = 0; i < multichannelDevices.Length; i++)
+            {
+                var device = multichannelDevices[i];
+                Console.WriteLine($"{i + 1}. {device.Name}: {device.ChannelCount} channels");
+            }
+
+            Console.Write($"Choose the device ID for {target}: ");
+
+            var input = Console.ReadLine()?.Trim();
+            if (int.TryParse(input, out int id) && id > 0 && id <= multichannelDevices.Length)
+            {
+                return id - 1;
+            }
+
+            return -1;
         }
 
-        Console.Write("Type the device ID: ");
-        var input = Console.ReadLine()?.Trim();
-        if (int.TryParse(input, out int id) && id > 0 && id <= devices.Length)
+        if (motuCabin == null)
         {
-            return devices[id - 1];
+            var index = Prompt("cabin speakers");
+            if (index >= 0)
+                motuCabin = multichannelDevices[index];
         }
-        else
+
+        if (motuWalls == null)
         {
-            Console.WriteLine("Unknown ID, continue with the default device.");
-            return null;
+            var index = Prompt("walls speakers");
+            if (index >= 0)
+                motuWalls = multichannelDevices[index];
         }
+
+        return (motuCabin, motuWalls);
     }
 
     private void InitStreamDeck()
@@ -102,20 +136,24 @@ internal class SireneController
         _streamDeckClient.SetKey(new StreamDeck.Key()
         {
             Id = 0,
-            FileNameOrColor = "128,196,255"
+            FileNameOrColor = "64,160,255"
+        });
+        _streamDeckClient.SetKey(new StreamDeck.Key()
+        {
+            Id = 1,
+            FileNameOrColor = "255,128,128"
         });
     }
 
-    private void PlayCircularSound()
+    private void PlayWallsSound()
     {
-        int enabledChannelCount = _channelEnablingMap.Count(true);
+        int enabledChannelCount = _motuWallsChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
         {
-            Console.WriteLine("Not enough enabled sound channels to play circular sound");
+            Console.WriteLine("Not enough enabled sound channels to play the wall sound");
             return;
         }
 
-        _soundPlayerClient.DeviceId = _motuDeviceId;
         var tone = new SoundPlayer.ToneDescription()
         {
             ToneType = SoundPlayer.ToneType.Triangle,
@@ -124,7 +162,7 @@ internal class SireneController
             PulseDuration = 0,
             TotalDuration = 0
         };
-        tone.ChannelEnablingMap.AddRange(_channelEnablingMap);
+        tone.ChannelEnablingMap.AddRange(_motuWallsChannelEnablingMap);
 
         float direction = 0;
         float[] map = new float[enabledChannelCount];
@@ -132,26 +170,71 @@ internal class SireneController
         DirectionToMap(direction, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        _ = _soundPlayerClient.PlayTone(tone);
+        _ = _soundPlayerClient.PlayTone(tone, _motuWallsDeviceId);
 
-        _isPlayingSireneSound = true;
+        _isPlayingWallsSound = true;
 
         Task.Run(async () =>
         {
             while (direction < 1f)
             {
                 await Task.Delay(40);
+
                 direction += 0.01f;
+
                 DirectionToMap(direction, map);
-                /*Console.Write($"D = {direction:F2}");
-                foreach (var v in map.Take(16))
-                    Console.Write($" {v:F3}");
-                Console.WriteLine();*/
                 _soundPlayerClient.SetChannelMap(map);
             }
 
             _soundPlayerClient.Stop();
-            _isPlayingSireneSound = false;
+            _isPlayingWallsSound = false;
+        });
+    }
+
+
+    private void PlayCabinSound()
+    {
+        int enabledChannelCount = _motuCabinChannelEnablingMap.Count(true);
+        if (enabledChannelCount < 2)
+        {
+            Console.WriteLine("Not enough enabled sound channels to play the cabin sound");
+            return;
+        }
+
+        var tone = new SoundPlayer.ToneDescription()
+        {
+            ToneType = SoundPlayer.ToneType.Triangle,
+            Frequency = 440,
+            Gain = 1,
+            PulseDuration = 0,
+            TotalDuration = 0
+        };
+        tone.ChannelEnablingMap.AddRange(_motuCabinChannelEnablingMap);
+
+        float direction = 0;
+        float[] map = new float[enabledChannelCount];
+
+        DirectionToMap(direction, map);
+        _soundPlayerClient.SetChannelMap(map);
+
+        _ = _soundPlayerClient.PlayTone(tone, _motuCabinDeviceId);
+
+        _isPlayingCabinSound = true;
+
+        Task.Run(async () =>
+        {
+            while (direction < 1f)
+            {
+                await Task.Delay(40);
+
+                direction += 0.01f;
+
+                DirectionToMap(direction, map);
+                _soundPlayerClient.SetChannelMap(map);
+            }
+
+            _soundPlayerClient.Stop();
+            _isPlayingCabinSound = false;
         });
     }
 

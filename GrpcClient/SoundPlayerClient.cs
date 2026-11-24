@@ -39,27 +39,27 @@ public sealed class SoundPlayerClient
         _client.SetChannelMap(channelMap);
     }
 
-    public async Task<bool> PlayFile(string filename)
+    public async Task<bool> PlayFile(string filename, string? device = null)
     {
         if (!_isAvailable)
             return false;
 
         var response = await _client.PlayAsync(new SoundPlayer.SoundDescription()
         {
-            DeviceId = DeviceId,
+            DeviceId = device ?? DeviceId,
             FileName = filename,
         });
         return response.Value;
     }
 
-    public async Task PlayTone(SoundPlayer.ToneDescription tone)
+    public async Task PlayTone(SoundPlayer.ToneDescription tone, string? device = null)
     {
         if (!_isAvailable)
             return;
 
         await _client.PlayAsync(new SoundPlayer.SoundDescription()
         {
-            DeviceId = DeviceId,
+            DeviceId = device ?? DeviceId,
             Tone = tone,
         });
     }
