@@ -22,26 +22,36 @@ internal class SireneController
 
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
-            if (e.Id == 0 && e.IsPressed && !_isPlayingWallsSound)
-                PlayWallsSound();
-            else if (e.Id == 1 && e.IsPressed && !_isPlayingCabinSound)
-                PlayCabinSound();
+            if (e.Id == 0 && e.IsPressed && !(_motuWalls?.IsPlaying ?? true))
+                PlayCircularSound(_motuWalls);
+            else if (e.Id == 1 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
+                PlayCircularSound(_motuCabin);
         };
+    }
+
+    const string WALL_SPEAKERS_DEVICE = "(MOTU Pro Audio)";
+    const int WALL_SPEAKERS_COUNT = 16;
+    const string CABIN_SPEAKERS_DEVICE = "(2- MOTU Pro Audio)";
+    const int CABIN_SPEAKERS_COUNT = 8;
+
+    class Motu(
+        string location,
+        string deviceId,
+        int channelCount,
+        bool[] channelEnablingMap)
+    {
+        public string Location => location;
+        public string DeviceId => deviceId;
+        public int ChannelCount => channelCount;
+        public bool[] ChannelEnablingMap => channelEnablingMap;
+        public bool IsPlaying { get; set; } = false;
     }
 
     readonly SoundPlayerClient _soundPlayerClient;
     readonly StreamDeckClient _streamDeckClient;
-    
-    string _motuWallsDeviceId = string.Empty;
-    int _motuWallsChannelCount = 2;
-    bool[] _motuWallsChannelEnablingMap = [];
-    bool _isPlayingWallsSound = false;
 
-    string _motuCabinDeviceId = string.Empty;
-    int _motuCabinChannelCount = 2;
-    bool[] _motuCabinChannelEnablingMap = [];
-    bool _isPlayingCabinSound = false;
-
+    Motu? _motuWalls;
+    Motu? _motuCabin;
 
     private void InitSound()
     {
@@ -49,86 +59,63 @@ internal class SireneController
         var multichannelDevices = allDevices
             .Where(d => d.ChannelCount > 2)
             .ToArray();
-
-        SoundPlayer.Device? motuCabin = null;
-        SoundPlayer.Device? motuWalls = null;
-
-        if (multichannelDevices.Length > 0)
+        
+        if (multichannelDevices.Length == 0)
         {
-            (motuCabin, motuWalls) = SelectSoundDevice(multichannelDevices);
-            Console.WriteLine(motuCabin == null ? "No cabin speakers" : $"Cabin speakers on {motuCabin.Name}");
-            Console.WriteLine(motuWalls == null ? "No walls speakers" : $"Walls speakers on {motuWalls.Name}");
-        }
-        else
-        {
-            Console.WriteLine("No multichannel sound devices found, using the default device, one of:");
-            foreach (var device in allDevices)
-                Console.WriteLine($" - {device.Name}");
+            Console.WriteLine("No multichannel sound devices found.");
+            return;
         }
 
-        if (motuCabin != null)
-        {
-            _motuCabinDeviceId = motuCabin.Id;
-            _motuCabinChannelCount = motuCabin.ChannelCount;
-
-            _motuCabinChannelEnablingMap = new bool[_motuCabinChannelCount];
-            for (int i = 0; i < _motuCabinChannelCount; i++)
-                _motuCabinChannelEnablingMap[i] = i < Math.Min(8, _motuCabinChannelCount); // only 8 wall speakers
-        }
-
-
-        if (motuWalls != null)
-        {
-            _motuWallsDeviceId = motuWalls.Id;
-            _motuWallsChannelCount = motuWalls.ChannelCount;
-
-            _motuWallsChannelEnablingMap = new bool[_motuWallsChannelCount];
-            for (int i = 0; i < _motuWallsChannelCount; i++)
-                _motuWallsChannelEnablingMap[i] = i < Math.Min(16, _motuWallsChannelCount); // only 16 wall speakers
-        }
+        _motuCabin = InitMotuDevice(multichannelDevices, "cabin", CABIN_SPEAKERS_COUNT, CABIN_SPEAKERS_DEVICE);
+        _motuWalls = InitMotuDevice(multichannelDevices, "wall", WALL_SPEAKERS_COUNT, WALL_SPEAKERS_DEVICE);
     }
 
-    private static (SoundPlayer.Device?, SoundPlayer.Device?) SelectSoundDevice(
-        SoundPlayer.Device[] multichannelDevices)
+
+    private static Motu? InitMotuDevice(
+        SoundPlayer.Device[] multichannelDevices, 
+        string speakersLocation,
+        int speakersCount,
+        string defaultDeviceName)
     {
-        var motuCabin = multichannelDevices.FirstOrDefault(x => x.Name.Contains("(MOTU Pro Audio)"));
-        var motuWalls = multichannelDevices.FirstOrDefault(x => x.Name.Contains("(2- MOTU Pro Audio)"));
+        SoundPlayer.Device? soundDevice =
+            multichannelDevices.FirstOrDefault(x => x.Name.Contains(defaultDeviceName)) ??
+            SelectSoundDevice(multichannelDevices, speakersLocation);
 
-        int Prompt(string target)
+        Console.WriteLine(soundDevice == null ? $"No {speakersLocation} speakers" : $"{speakersLocation} speakers on {soundDevice.Name}");
+
+        if (soundDevice != null)
         {
-            Console.WriteLine("Multichannel sound devices:");
-            for (int i = 0; i < multichannelDevices.Length; i++)
-            {
-                var device = multichannelDevices[i];
-                Console.WriteLine($"{i + 1}. {device.Name}: {device.ChannelCount} channels");
-            }
+            var channelEnablingMap = new bool[soundDevice.ChannelCount];
+            for (int i = 0; i < soundDevice.ChannelCount; i++)
+                channelEnablingMap[i] = i < Math.Min(speakersCount, soundDevice.ChannelCount);
 
-            Console.Write($"Choose the device ID for {target}: ");
-
-            var input = Console.ReadLine()?.Trim();
-            if (int.TryParse(input, out int id) && id > 0 && id <= multichannelDevices.Length)
-            {
-                return id - 1;
-            }
-
-            return -1;
+            return new Motu(speakersLocation, soundDevice.Id, soundDevice.ChannelCount, channelEnablingMap);
         }
 
-        if (motuCabin == null)
+        return null;
+    }
+
+    private static SoundPlayer.Device? SelectSoundDevice(
+        SoundPlayer.Device[] multichannelDevices,
+        string speakersLocation)
+    {
+        Console.WriteLine("Multichannel sound devices:");
+        for (int i = 0; i < multichannelDevices.Length; i++)
         {
-            var index = Prompt("cabin speakers");
-            if (index >= 0)
-                motuCabin = multichannelDevices[index];
+            var device = multichannelDevices[i];
+            Console.WriteLine($"{i + 1}. {device.Name}: {device.ChannelCount} channels");
         }
 
-        if (motuWalls == null)
+        Console.Write($"Choose the device ID for {speakersLocation} speakers: ");
+
+        int index = -1;
+        var input = Console.ReadLine()?.Trim();
+        if (int.TryParse(input, out int id) && id > 0 && id <= multichannelDevices.Length)
         {
-            var index = Prompt("walls speakers");
-            if (index >= 0)
-                motuWalls = multichannelDevices[index];
+            index = id - 1;
         }
 
-        return (motuCabin, motuWalls);
+        return index < 0 ? null : multichannelDevices[index];
     }
 
     private void InitStreamDeck()
@@ -145,12 +132,12 @@ internal class SireneController
         });
     }
 
-    private void PlayWallsSound()
+    private void PlayCircularSound(Motu motu)
     {
-        int enabledChannelCount = _motuWallsChannelEnablingMap.Count(true);
+        int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
         {
-            Console.WriteLine("Not enough enabled sound channels to play the wall sound");
+            Console.WriteLine($"Not enough enabled channels to play the curlcular sound on {motu.Location} speakers");
             return;
         }
 
@@ -162,7 +149,7 @@ internal class SireneController
             PulseDuration = 0,
             TotalDuration = 0
         };
-        tone.ChannelEnablingMap.AddRange(_motuWallsChannelEnablingMap);
+        tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
 
         float direction = 0;
         float[] map = new float[enabledChannelCount];
@@ -170,9 +157,9 @@ internal class SireneController
         DirectionToMap(direction, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        _ = _soundPlayerClient.PlayTone(tone, _motuWallsDeviceId);
+        _ = _soundPlayerClient.PlayTone(tone, motu.DeviceId);
 
-        _isPlayingWallsSound = true;
+        motu.IsPlaying = true;
 
         Task.Run(async () =>
         {
@@ -187,54 +174,7 @@ internal class SireneController
             }
 
             _soundPlayerClient.Stop();
-            _isPlayingWallsSound = false;
-        });
-    }
-
-
-    private void PlayCabinSound()
-    {
-        int enabledChannelCount = _motuCabinChannelEnablingMap.Count(true);
-        if (enabledChannelCount < 2)
-        {
-            Console.WriteLine("Not enough enabled sound channels to play the cabin sound");
-            return;
-        }
-
-        var tone = new SoundPlayer.ToneDescription()
-        {
-            ToneType = SoundPlayer.ToneType.Triangle,
-            Frequency = 440,
-            Gain = 1,
-            PulseDuration = 0,
-            TotalDuration = 0
-        };
-        tone.ChannelEnablingMap.AddRange(_motuCabinChannelEnablingMap);
-
-        float direction = 0;
-        float[] map = new float[enabledChannelCount];
-
-        DirectionToMap(direction, map);
-        _soundPlayerClient.SetChannelMap(map);
-
-        _ = _soundPlayerClient.PlayTone(tone, _motuCabinDeviceId);
-
-        _isPlayingCabinSound = true;
-
-        Task.Run(async () =>
-        {
-            while (direction < 1f)
-            {
-                await Task.Delay(40);
-
-                direction += 0.01f;
-
-                DirectionToMap(direction, map);
-                _soundPlayerClient.SetChannelMap(map);
-            }
-
-            _soundPlayerClient.Stop();
-            _isPlayingCabinSound = false;
+            motu.IsPlaying = false;
         });
     }
 
@@ -260,10 +200,9 @@ internal class SireneController
 
         int n = map.Length;
 
-        // to emulate cyclicity, we need two extra components, with ±n to the direction
+        // to emulate cyclicity, we need an extra component, with -n to the direction
         var directionP0 = direction * n;
-        var directionP1 = (direction + 1f) * n;
-        var directionP2 = (direction - 1f) * n;
+        var directionP1 = (direction - 1f) * n;
 
         // The map is a normal distribution scaled, shifted down, and cut from top and bottom:
         //      ____
@@ -274,18 +213,21 @@ internal class SireneController
         //
         // With 2s^2 = 0.685, scale = 2.162 and offset = 0.5,
         // the top flat area ranges from -0.5 to 0.5, the slop length is 0.5
+        //double doubleQ2 = 0.684;
+        //double scale = 2.162;
+        //double offset = 0.5;
+        //double pow = 1.5;
 
-        double doubleQ2 = 0.684;
-        double scale = 2.162;
-        double offset = 0.5;
-        double pow = 1.5;
+        double scale = 2;
+        double offset = 1;
+        double doubleQ2 = -1.0 / Math.Log(offset / scale);
+        double pow = 1;
 
         for (int i = 0; i < n; i++)
         {
             var a0 = Math.Exp(-Math.Pow(i - directionP0, 2) / doubleQ2);
             var a1 = Math.Exp(-Math.Pow(i - directionP1, 2) / doubleQ2);
-            var a2 = Math.Exp(-Math.Pow(i - directionP2, 2) / doubleQ2);
-            map[i] = (float)Math.Pow(Math.Clamp((a0 + a1 + a2) * scale - offset, 0, 1), pow);
+            map[i] = (float)Math.Pow(Math.Clamp((a0 + a1) * scale - offset, 0, 1), pow);
         }
     }
 }

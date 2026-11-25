@@ -1,10 +1,10 @@
 ﻿using BeltsBrakes.Controllers;
+using GrpcClients;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
-using GrpcClients;
 
 namespace BeltsBrakes;
 
@@ -30,14 +30,24 @@ internal class Program
 
         _logger = host.Services.GetRequiredService<ILogger<Program>>();
 
+        if (!await CheckServerVersion(host, _logger))
+        {
+            await host.StopAsync();
+            return;
+        }
+
         Console.WriteLine("Belts & Brakes is running");
-        Console.WriteLine("\nRun CARLA and start driving. Effects:");
-        Console.WriteLine("- belt is tighten on sudden brakes");
-        Console.WriteLine("- car horn is played upon pressing middle button in the top-right wheel area");
-        Console.WriteLine("- sirene is played upon pressing top-left StreamDeck button");
-        Console.WriteLine("- the following sign is shown in the left mirror when speed exceeds");
-        Console.WriteLine("    15m/s - warning");
-        Console.WriteLine("    19m/s - critical");
+        Console.WriteLine("\nRun CARLA and start driving.");
+        Console.WriteLine("Effects:");
+        Console.WriteLine(" - belt is tighten on sudden brakes");
+        Console.WriteLine(" - a sound is played upon pressing steering button");
+        Console.WriteLine("     middle top-right: car horn");
+        Console.WriteLine(" - a sound is played upon pressing a StreamDeck button:");
+        Console.WriteLine("     blue: around the room");
+        Console.WriteLine("     pink: around the seat");
+        Console.WriteLine(" - the following sign is shown in the left mirror when speed exceeds");
+        Console.WriteLine("     15m/s: warning");
+        Console.WriteLine("     19m/s: critical");
         Console.WriteLine();
 
         Communicator communicator;
@@ -71,7 +81,7 @@ internal class Program
 
         communicator.Start();
 
-        _logger.LogInformation("Press any key to stop...");
+        Console.WriteLine("Press any key to stop...");
         Console.ReadKey(true);
 
         communicator.Stop();
@@ -88,6 +98,8 @@ internal class Program
 
         services.Configure<AppSettings>(config);
 
+        services.AddSingleton<ServerClient>();
+
         services.AddSingleton<TensionRClient>();
         services.AddSingleton<CarlaClient>();
         services.AddSingleton<ScreenClient>();
@@ -103,6 +115,42 @@ internal class Program
         services.AddSingleton<SireneController>();
     }
 
+    private static async Task<bool> CheckServerVersion(IHost host, ILogger<Program> logger)
+    {
+        try
+        {
+            using var server = host.Services.GetRequiredService<ServerClient>();
+            if (server.CoreVersion != Common.Constants.CORE_VERSION)
+            {
+                throw new Exception(
+                    "Cannot run the app, as it uses another core version than the server:\n" +
+                    $"'{Common.Constants.CORE_VERSION}' and '{server.CoreVersion}', correspondingly");
+            }
+            else if (server.CoreBuildTime != Core.BuildInfo.BuildTime)
+            {
+                Console.Write(
+                        "Core build time differs from the one used by the server,\n" +
+                        "The functionality may not match, \n" +
+                        "causing either the server or the app to crash\n\n" +
+                        "Do you want to continue [y/N]? ");
+                var input = Console.ReadLine();
+                if (input?.Trim().ToLower() != "y")
+                {
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex.Message);
+            Console.WriteLine("Terminating the app...");
+
+            return false;
+        }
+
+        return true;
+    }
+
     private static bool SetBeltComPort(Communicator comm)
     {
         Console.WriteLine("COM ports:");
@@ -112,6 +160,7 @@ internal class Program
         }
         Console.Write($"Belt COM port: {comm.BeltComPort?.Name ?? ""}");
         var input = Console.ReadLine()?.Trim();
+
         if (comm.BeltComPort != null && string.IsNullOrEmpty(input))
         {
             // OK, use default port
@@ -127,7 +176,7 @@ internal class Program
             }
             else
             {
-                _logger?.LogError($"Port {comPortName} not found");
+                _logger?.LogError("Port {name} not found", comPortName);
                 return false;
             }
         }
