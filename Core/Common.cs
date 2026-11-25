@@ -4,6 +4,7 @@ namespace Common;
 
 public enum Ports
 {
+    Server = 30049,
     LeapMotion = 30050,
     MyGaze = 30051,
     TobiiEyeX = 30052,
@@ -26,6 +27,7 @@ public interface ILoggable
 
 public static class Constants
 {
+    public const string CORE_VERSION = "0.1";
     public const int FILE_CHUNK_SIZE = 64 * 1024;
 
 }

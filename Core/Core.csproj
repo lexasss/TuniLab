@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Protobuf Include="protos\common.proto" Link="protos\common.proto" />
+    <Protobuf Include="protos\server.proto" Link="protos\server.proto" />
     <Protobuf Include="protos\gaze.proto" Link="protos\gaze.proto" />
     <Protobuf Include="protos\leap.proto" Link="protos\leap.proto" />
     <Protobuf Include="protos\se.proto" Link="protos\se.proto" />
@@ -29,5 +30,19 @@
     <Protobuf Include="protos\camera.proto" Link="protos\camera.proto" />
     <Protobuf Include="protos\carla.proto" Link="protos\carla.proto" />
   </ItemGroup>
-	
+
+  <PropertyGroup>
+    <BuildTime>$([System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))</BuildTime>
+  </PropertyGroup>
+
+  <Target Name="GenerateBuildInfo" BeforeTargets="BeforeCompile">
+    <WriteLinesToFile
+      File="$(IntermediateOutputPath)BuildInfo.cs"
+      Lines="namespace Core%3B public static class BuildInfo { public static readonly string BuildTime = &quot;$(BuildTime)&quot;%3B }"
+      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)BuildInfo.cs" />
+    </ItemGroup>
+  </Target>
+
 </Project>

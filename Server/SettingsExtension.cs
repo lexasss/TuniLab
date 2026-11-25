@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Server.Settings;
+namespace Server;
 
 public static class SettingsExtensions
 {

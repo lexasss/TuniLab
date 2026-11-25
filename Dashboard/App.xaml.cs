@@ -21,6 +21,9 @@ public partial class App : Application
         _host = builder.Build();
         await _host.StartAsync();
 
+        if (!await CheckServerVersion(_host))
+            return;
+
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
@@ -28,12 +31,7 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        if (_host is not null)
-        {
-            await _host.StopAsync();
-            _host.Dispose();
-        }
-
+        await CleanUp();
         base.OnExit(e);
     }
 
@@ -47,6 +45,8 @@ public partial class App : Application
             reloadOnChange: false);
 
         services.Configure<AppSettings>(config);
+
+        services.AddSingleton<ServerClient>();
 
         services.AddSingleton<LeapMotionClient>();
         services.AddSingleton<SmartEyeClient>();
@@ -74,5 +74,57 @@ public partial class App : Application
 
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
+    }
+
+    private async Task<bool> CheckServerVersion(IHost host)
+    {
+        try
+        {
+            using var server = host.Services.GetRequiredService<ServerClient>();
+            if (server.CoreVersion != Common.Constants.CORE_VERSION)
+            {
+                throw new Exception(
+                    "Cannot run the app, as it uses another core version than the server:\n" +
+                    $"'{Common.Constants.CORE_VERSION}' and '{server.CoreVersion}', correspondingly");
+            }
+            else if (server.CoreBuildTime != Core.BuildInfo.BuildTime)
+            {
+                if (MessageBox.Show(
+                        "Core build time differs from the one used by the server,\n" +
+                        "The functionality may not match, \n" +
+                        "causing either the server or the app to crash\n\n" +
+                        $"Do you want to continue?",
+                        "Dashboard",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Exclamation)
+                    == MessageBoxResult.No)
+                {
+                    await CleanUp();
+                    Shutdown();
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Dashboard", MessageBoxButton.OK, MessageBoxImage.Error);
+
+            await CleanUp();
+            Shutdown();
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task CleanUp()
+    {
+        if (_host is not null)
+        {
+            await _host.StopAsync();
+            _host.Dispose();
+            _host = null;
+        }
     }
 }

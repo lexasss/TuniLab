@@ -1,7 +1,6 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
-using Server.Settings;
 using System.Net;
 using System.Net.Sockets;
 using Proto = global::Carla;
