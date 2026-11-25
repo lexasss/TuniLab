@@ -21,7 +21,7 @@ public partial class App : Application
         _host = builder.Build();
         await _host.StartAsync();
 
-        if (!await CheckServerVersion(_host))
+        if (!await CheckServerVersion(_host.Services))
             return;
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
@@ -76,11 +76,11 @@ public partial class App : Application
         services.AddTransient<MainWindow>();
     }
 
-    private async Task<bool> CheckServerVersion(IHost host)
+    private async Task<bool> CheckServerVersion(IServiceProvider services)
     {
         try
         {
-            using var server = host.Services.GetRequiredService<ServerClient>();
+            using var server = services.GetRequiredService<ServerClient>();
             if (server.CoreVersion != Common.Constants.CORE_VERSION)
             {
                 throw new Exception(

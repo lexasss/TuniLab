@@ -12,6 +12,16 @@ internal class Program
 {
     static ILogger<Program>? _logger;
 
+    class EnabledCases
+    {
+        public bool BeltBrakes { get; set; }
+        public bool SpeedWarning { get; set; }
+        public bool CarHorn { get; set; }
+        public bool Sirene { get; set; }
+
+        public bool HasAnyCaseEnabled => BeltBrakes || SpeedWarning || CarHorn || Sirene;
+    }
+
     static async Task Main(string[] args)
     {
         var builder = Host.CreateApplicationBuilder(args);
@@ -30,7 +40,7 @@ internal class Program
 
         _logger = host.Services.GetRequiredService<ILogger<Program>>();
 
-        if (!await CheckServerVersion(host, _logger))
+        if (!await CheckServerVersion(host.Services, _logger))
         {
             await host.StopAsync();
             return;
@@ -38,16 +48,29 @@ internal class Program
 
         Console.WriteLine("Belts & Brakes is running");
         Console.WriteLine("\nRun CARLA and start driving.");
-        Console.WriteLine("Effects:");
-        Console.WriteLine(" - belt is tighten on sudden brakes");
-        Console.WriteLine(" - a sound is played upon pressing steering button");
-        Console.WriteLine("     middle top-right: car horn");
-        Console.WriteLine(" - a sound is played upon pressing a StreamDeck button:");
-        Console.WriteLine("     blue: around the room");
-        Console.WriteLine("     pink: around the seat");
-        Console.WriteLine(" - the following sign is shown in the left mirror when speed exceeds");
-        Console.WriteLine("     15m/s: warning");
-        Console.WriteLine("     19m/s: critical");
+
+        Console.WriteLine("Enabling the effects (type Y to enable all):");
+
+        bool acceptAll = false;
+        var enabledCases = new EnabledCases
+        {
+            BeltBrakes = PromptEffect(
+                "belt is tighten on sudden brakes",
+                ref acceptAll),
+            CarHorn = PromptEffect(
+                "a sound is played upon pressing steering button [1] middle top-right: car horn",
+                ref acceptAll),
+            SpeedWarning = PromptEffect(
+                "the following sign is shown in the left mirror when speed exceeds [1] 15m/s: warning, [2] 19m/s: critical",
+                ref acceptAll),
+            Sirene = PromptEffect(
+                "a sound is played upon pressing a StreamDeck button [1] blue: around the room, [2] pink: around the seat",
+                ref acceptAll)
+        };
+
+        if (!enabledCases.HasAnyCaseEnabled)
+            return;
+
         Console.WriteLine();
 
         Communicator communicator;
@@ -55,18 +78,20 @@ internal class Program
         try
         {
             communicator = host.Services.GetRequiredService<Communicator>();
-            /*
-            if (!SetBeltComPort(communicator))
-                return;
-
-            _logger.LogInformation("Prepare to calibrate the belts, then press any key...");
-            Console.ReadKey(true);
-
-            if (!communicator.PrepareBelt())
+            if (enabledCases.BeltBrakes)
             {
-                _logger.LogError("Failed to prepare the system");
-                return;
-            }*/
+                if (!SetBeltComPort(communicator))
+                    return;
+
+                _logger.LogInformation("Prepare to calibrate the belts, then press any key...");
+                Console.ReadKey(true);
+
+                if (!communicator.PrepareBelt())
+                {
+                    _logger.LogError("Failed to prepare the system");
+                    return;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -74,10 +99,15 @@ internal class Program
             return;
         }
 
-        //var beltController = host.Services.GetRequiredService<BeltController>();
-        //var speedWarnSignController = host.Services.GetRequiredService<SpeedWarnSignController>();
-        //var carHornController = host.Services.GetRequiredService<CarHornController>();
-        var sireneController = host.Services.GetRequiredService<SireneController>();
+        List<object> services = [];
+        if (enabledCases.BeltBrakes)
+            services.Add(host.Services.GetRequiredService<BeltController>());
+        if (enabledCases.SpeedWarning)
+            services.Add(host.Services.GetRequiredService<SpeedWarnSignController>());
+        if (enabledCases.CarHorn)
+            services.Add(host.Services.GetRequiredService<CarHornController>());
+        if (enabledCases.Sirene)
+            services.Add(host.Services.GetRequiredService<SireneController>());
 
         communicator.Start();
 
@@ -115,11 +145,12 @@ internal class Program
         services.AddSingleton<SireneController>();
     }
 
-    private static async Task<bool> CheckServerVersion(IHost host, ILogger<Program> logger)
+    private static async Task<bool> CheckServerVersion(
+        IServiceProvider services, ILogger<Program> logger)
     {
         try
         {
-            using var server = host.Services.GetRequiredService<ServerClient>();
+            using var server = services.GetRequiredService<ServerClient>();
             if (server.CoreVersion != Common.Constants.CORE_VERSION)
             {
                 throw new Exception(
@@ -149,6 +180,23 @@ internal class Program
         }
 
         return true;
+    }
+
+    private static bool PromptEffect(string prompt, ref bool acceptAll)
+    {
+        var c = '\0';
+
+        Console.Write($" - {prompt}" + (acceptAll ? "[Y]" : " [Y/n] "));
+        if (!acceptAll)
+        {
+            c = Console.ReadKey(true).KeyChar;
+            acceptAll = c == 'Y';
+        }
+
+        var isAccepted = c == 'y' || c == '\n' || c == '\r' || acceptAll;
+        Console.WriteLine(isAccepted ? "+" : "-");
+
+        return isAccepted;
     }
 
     private static bool SetBeltComPort(Communicator comm)

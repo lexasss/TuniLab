@@ -208,7 +208,8 @@ internal class SireneController
         //      ⟋¯⟍
         //     /    \
         // ¯¯¯¯      ¯¯¯¯
-        // Desmos:
+        // https://www.desmos.com/calculator/tczsny2hmb
+        // Old version had a flat top:
         // https://www.desmos.com/calculator/s4dj0lchie
 
         double scale = 2;
