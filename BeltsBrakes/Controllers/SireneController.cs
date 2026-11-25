@@ -29,9 +29,9 @@ internal class SireneController
         };
     }
 
-    const string WALL_SPEAKERS_DEVICE = "(MOTU Pro Audio)";
+    const string WALL_SPEAKERS_DEVICE = "(2- MOTU Pro Audio)";
     const int WALL_SPEAKERS_COUNT = 16;
-    const string CABIN_SPEAKERS_DEVICE = "(2- MOTU Pro Audio)";
+    const string CABIN_SPEAKERS_DEVICE = "(MOTU Pro Audio)";
     const int CABIN_SPEAKERS_COUNT = 8;
 
     class Motu(
@@ -204,23 +204,16 @@ internal class SireneController
         var directionP0 = direction * n;
         var directionP1 = (direction - 1f) * n;
 
-        // The map is a normal distribution scaled, shifted down, and cut from top and bottom:
-        //      ____
+        // The map is a normal distribution scaled, shifted down, and cut from the bottom:
+        //      ⟋¯⟍
         //     /    \
         // ¯¯¯¯      ¯¯¯¯
         // Desmos:
         // https://www.desmos.com/calculator/s4dj0lchie
-        //
-        // With 2s^2 = 0.685, scale = 2.162 and offset = 0.5,
-        // the top flat area ranges from -0.5 to 0.5, the slop length is 0.5
-        //double doubleQ2 = 0.684;
-        //double scale = 2.162;
-        //double offset = 0.5;
-        //double pow = 1.5;
 
         double scale = 2;
         double offset = 1;
-        double doubleQ2 = -1.0 / Math.Log(offset / scale);
+        double doubleQ2 = -1.0 / Math.Log(offset / scale); // to be positive within ±1
         double pow = 1;
 
         for (int i = 0; i < n; i++)
