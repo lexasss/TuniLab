@@ -3,7 +3,12 @@ using Microsoft.Extensions.Options;
 
 namespace GrpcClients;
 
-public abstract class Client<T, U> : IDisposable
+public interface IClient
+{
+    bool IsAvailable { get; }
+}
+
+public abstract class Client<T, U> : IDisposable, IClient
     where T : ClientBase<T>
     where U : Google.Protobuf.IMessage<U>
 {

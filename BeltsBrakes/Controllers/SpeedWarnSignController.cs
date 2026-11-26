@@ -4,6 +4,11 @@ namespace BeltsBrakes;
 
 internal class SpeedWarnSignController : IDisposable
 {
+    public static Type[] RequiredGrpcClients => [
+        typeof(CarlaClient),
+        typeof(ScreenClient)
+    ];
+
     public SpeedWarnSignController(
         CarlaClient carlaClient,
         ScreenClient screenClient)

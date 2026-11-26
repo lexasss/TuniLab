@@ -4,6 +4,11 @@ namespace BeltsBrakes;
 
 internal class SireneController
 {
+    public static Type[] RequiredGrpcClients => [
+        typeof(SoundPlayerClient),
+        typeof(StreamDeckClient)
+    ];
+
     public SireneController(
         SoundPlayerClient soundPlayerClient,
         StreamDeckClient streamDeckClient)

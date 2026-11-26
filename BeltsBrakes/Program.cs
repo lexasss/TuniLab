@@ -40,7 +40,7 @@ internal class Program
 
         _logger = host.Services.GetRequiredService<ILogger<Program>>();
 
-        if (!await CheckServerVersion(host.Services, _logger))
+        if (!await CheckCoreVersion(host.Services, _logger))
         {
             await host.StopAsync();
             return;
@@ -49,7 +49,7 @@ internal class Program
         Console.WriteLine("Belts & Brakes is running");
         Console.WriteLine("\nRun CARLA and start driving.");
 
-        Console.WriteLine("Enabling the effects (type Y to enable all):");
+        Console.WriteLine("Enabled effects (type Y to enable all):");
 
         bool acceptAll = false;
         var enabledCases = new EnabledCases
@@ -78,19 +78,17 @@ internal class Program
         try
         {
             communicator = host.Services.GetRequiredService<Communicator>();
-            if (enabledCases.BeltBrakes)
+
+            Type[] requiredClients = [
+                ..BeltController.RequiredGrpcClients,
+                ..SpeedWarnSignController.RequiredGrpcClients,
+                ..CarHornController.RequiredGrpcClients,
+                ..SireneController.RequiredGrpcClients,
+            ];
+            requiredClients = requiredClients.Distinct().ToArray();
+            if (!communicator.CheckClientAvailablility(requiredClients))
             {
-                if (!SetBeltComPort(communicator))
-                    return;
-
-                _logger.LogInformation("Prepare to calibrate the belts, then press any key...");
-                Console.ReadKey(true);
-
-                if (!communicator.PrepareBelt())
-                {
-                    _logger.LogError("Failed to prepare the system");
-                    return;
-                }
+                throw new InvalidOperationException("One or more required clients are not available.");
             }
         }
         catch (Exception ex)
@@ -99,15 +97,28 @@ internal class Program
             return;
         }
 
-        List<object> services = [];
         if (enabledCases.BeltBrakes)
-            services.Add(host.Services.GetRequiredService<BeltController>());
+        {
+            var bc = host.Services.GetRequiredService<BeltController>();
+            if (!bc.SelectComPort(_logger))
+                return;
+
+            _logger.LogInformation("Prepare to calibrate the belts, then press any key...");
+            Console.ReadKey(true);
+
+            if (!bc.PrepareBelt())
+            {
+                _logger.LogError("Failed to prepare the system");
+                return;
+            }
+        }
+
         if (enabledCases.SpeedWarning)
-            services.Add(host.Services.GetRequiredService<SpeedWarnSignController>());
+            host.Services.GetRequiredService<SpeedWarnSignController>();
         if (enabledCases.CarHorn)
-            services.Add(host.Services.GetRequiredService<CarHornController>());
+            host.Services.GetRequiredService<CarHornController>();
         if (enabledCases.Sirene)
-            services.Add(host.Services.GetRequiredService<SireneController>());
+            host.Services.GetRequiredService<SireneController>();
 
         communicator.Start();
 
@@ -145,7 +156,7 @@ internal class Program
         services.AddSingleton<SireneController>();
     }
 
-    private static async Task<bool> CheckServerVersion(
+    private static async Task<bool> CheckCoreVersion(
         IServiceProvider services, ILogger<Program> logger)
     {
         try
@@ -186,7 +197,7 @@ internal class Program
     {
         var c = '\0';
 
-        Console.Write($" - {prompt}" + (acceptAll ? "[Y]" : " [Y/n] "));
+        Console.Write($" - {prompt}" + (acceptAll ? "[Y] " : " [Y/n] "));
         if (!acceptAll)
         {
             c = Console.ReadKey(true).KeyChar;
@@ -197,43 +208,5 @@ internal class Program
         Console.WriteLine(isAccepted ? "+" : "-");
 
         return isAccepted;
-    }
-
-    private static bool SetBeltComPort(Communicator comm)
-    {
-        Console.WriteLine("COM ports:");
-        foreach (var port in comm.ComPorts)
-        {
-            Console.WriteLine($"  - {port.Name}: {port.Description}");
-        }
-        Console.Write($"Belt COM port: {comm.BeltComPort?.Name ?? ""}");
-        var input = Console.ReadLine()?.Trim();
-
-        if (comm.BeltComPort != null && string.IsNullOrEmpty(input))
-        {
-            // OK, use default port
-        }
-        else if (!string.IsNullOrEmpty(input))
-        {
-            input = input.Trim().ToUpper();
-            string comPortName = input.StartsWith("COM", StringComparison.CurrentCultureIgnoreCase) ? input : $"COM{input}";
-            var port = comm.ComPorts.FirstOrDefault(p => p.Name == comPortName);
-            if (port != null)
-            {
-                comm.BeltComPort = port;
-            }
-            else
-            {
-                _logger?.LogError("Port {name} not found", comPortName);
-                return false;
-            }
-        }
-        else
-        {
-            _logger?.LogWarning("No COM port selected");
-            return false;
-        }
-
-        return true;
     }
 }

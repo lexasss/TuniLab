@@ -4,9 +4,6 @@ namespace BeltsBrakes;
 
 internal class Communicator
 {
-    public COMUtils.Port? BeltComPort { get; set; }
-    public List<COMUtils.Port> ComPorts { get; } = [];
-
     public Communicator(
         CarlaClient carlaClient,
         TensionRClient tensionRClient,
@@ -16,66 +13,38 @@ internal class Communicator
         StreamDeckClient streamDeckClient)
     {
         _carla = carlaClient;
+        _tensionR = tensionRClient;
         _screen = screenClient;
         _driving = drivingClient;
         _soundPlayer = soundPlayerClient;
         _streamDeckClient = streamDeckClient;
-
-        _tensionR = tensionRClient;
-        _tensionR.ConnectionChanged += (s, e) =>
-        {
-            _isBeltConnected = e;
-        };
-        _tensionR.EnabledChanged += (s, e) =>
-        {
-            _isBeltEnabled = e;
-        };
-        _tensionR.CalibrationChanged += (s, e) =>
-        {
-            _isBeltCalibrated = e;
-        };
-
-        try
-        {
-            Wait(() => carlaClient.IsAvailable && tensionRClient.IsAvailable);
-        }
-        catch
-        {
-            throw new InvalidOperationException("One or more required clients are not available.");
-        }
-
-        foreach (var port in _comUtils.Ports)
-            ComPorts.Add(port);
-
-        BeltComPort = ComPorts.FirstOrDefault(port =>
-            port.Description?.Contains(TENSIONR_PORT_DESCRIPTION) ?? false);
     }
 
-    public bool PrepareBelt()
+    public bool CheckClientAvailablility(Type[] requiredClientTypes)
     {
-        if (BeltComPort == null)
-            return false;
-
         try
         {
-            _tensionR.Connect(BeltComPort.Name);
-            Wait(() => _isBeltConnected);
-            Thread.Sleep(100);
+            IClient[] allClients = [
+                _carla,
+                _tensionR,
+                _screen,
+                _driving,
+                _soundPlayer,
+                _streamDeckClient
+            ];
 
-            _tensionR.Start();
-            Wait(() => _isBeltEnabled, 1000);
-            Thread.Sleep(100);
+            var requiredClients = allClients.Where(c => 
+                requiredClientTypes.Contains(c.GetType())
+            );
 
-            _tensionR.Calibrate();
-            Wait(() => _isBeltCalibrated, 10000);
-            Thread.Sleep(100);
+            Wait(() => requiredClients.All(client => client.IsAvailable));
         }
         catch
         {
             return false;
         }
 
-        return _isBeltEnabled;
+        return true;
     }
 
     public void Start()
@@ -96,20 +65,12 @@ internal class Communicator
 
     #region Internal
 
-    const string TENSIONR_PORT_DESCRIPTION = "Silicon Labs CP210x USB to UART Bridge";
-
     readonly CarlaClient _carla;
     readonly TensionRClient _tensionR;
     readonly ScreenClient _screen;
     readonly DrivingClient _driving;
     readonly SoundPlayerClient _soundPlayer;
     readonly StreamDeckClient _streamDeckClient;
-
-    readonly COMUtils _comUtils = new();
-
-    bool _isBeltConnected = false;
-    bool _isBeltCalibrated = false;
-    bool _isBeltEnabled = false;
 
     private static void Wait(Func<bool> condition, int timeoutMs = 5000)
     {

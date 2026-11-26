@@ -4,6 +4,11 @@ namespace BeltsBrakes.Controllers;
 
 internal class CarHornController
 {
+    public static Type[] RequiredGrpcClients => [
+        typeof(SoundPlayerClient),
+        typeof(DrivingClient)
+    ];
+
     public CarHornController(
         SoundPlayerClient soundPlayerClient,
         DrivingClient drivingClient)
