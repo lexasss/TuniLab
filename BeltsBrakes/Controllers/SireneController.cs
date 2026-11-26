@@ -28,11 +28,11 @@ internal class SireneController
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
             if (e.Id == 0 && e.IsPressed && !(_motuWalls?.IsPlaying ?? true))
-                PlayCircularSound(_motuWalls);
+                PlayCircularSound(_motuWalls, _tone440);
             else if (e.Id == 1 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCircularSound(_motuCabin);
+                PlayCircularSound(_motuCabin, _tone440);
             else if (e.Id == 2 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCabinTraversingSound(_motuCabin);
+                PlayCabinTraversingSound(_motuCabin, _tone440);
         };
     }
 
@@ -56,6 +56,16 @@ internal class SireneController
 
     readonly SoundPlayerClient _soundPlayerClient;
     readonly StreamDeckClient _streamDeckClient;
+
+    readonly SoundPlayer.ToneDescription _tone440 = new()
+    {
+        ToneType = SoundPlayer.ToneType.Triangle,
+        Frequency = 440,
+        Gain = 1,
+        PulseDuration = 0,
+        TotalDuration = 0
+    };
+
 
     Motu? _motuWalls;
     Motu? _motuCabin;
@@ -149,7 +159,7 @@ internal class SireneController
         });
     }
 
-    private void PlayCircularSound(Motu motu)
+    private void PlayCircularSound(Motu motu, SoundPlayer.ToneDescription tone)
     {
         int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
@@ -158,14 +168,7 @@ internal class SireneController
             return;
         }
 
-        var tone = new SoundPlayer.ToneDescription()
-        {
-            ToneType = SoundPlayer.ToneType.Triangle,
-            Frequency = 440,
-            Gain = 1,
-            PulseDuration = 0,
-            TotalDuration = 0
-        };
+        tone.ChannelEnablingMap.Clear();
         tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
 
         float direction = 0;
@@ -213,7 +216,7 @@ internal class SireneController
     /// and circles the driver counter-clockwise on the bottom speakers
     /// </summary>
     /// <param name="motu">MOTU device to play the sound</param>
-    private void PlayCabinTraversingSound(Motu motu)
+    private void PlayCabinTraversingSound(Motu motu, SoundPlayer.ToneDescription tone)
     {
         int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
@@ -222,14 +225,7 @@ internal class SireneController
             return;
         }
 
-        var tone = new SoundPlayer.ToneDescription()
-        {
-            ToneType = SoundPlayer.ToneType.Triangle,
-            Frequency = 440,
-            Gain = 1,
-            PulseDuration = 0,
-            TotalDuration = 0
-        };
+        tone.ChannelEnablingMap.Clear();
         tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
 
         float direction = 0;
