@@ -31,6 +31,8 @@ internal class SireneController
                 PlayCircularSound(_motuWalls);
             else if (e.Id == 1 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
                 PlayCircularSound(_motuCabin);
+            else if (e.Id == 2 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
+                PlayCabinTraversingSound(_motuCabin);
         };
     }
 
@@ -125,15 +127,25 @@ internal class SireneController
 
     private void InitStreamDeck()
     {
+        // blue button for wall circle sound
         _streamDeckClient.SetKey(new StreamDeck.Key()
         {
             Id = 0,
             FileNameOrColor = "64,160,255"
         });
+
+        // red button for cabin double-Z sound
         _streamDeckClient.SetKey(new StreamDeck.Key()
         {
             Id = 1,
             FileNameOrColor = "255,128,128"
+        });
+
+        // green button for cabin circle forward and return sound
+        _streamDeckClient.SetKey(new StreamDeck.Key()
+        {
+            Id = 2,
+            FileNameOrColor = "0,255,0"
         });
     }
 
@@ -183,23 +195,125 @@ internal class SireneController
         });
     }
 
+    private float[] Reroute(int[] channels, float[] gains)
+    {
+        if (channels.Length != gains.Length ||              // must be of the same length
+            channels.Any(i => i < 0 || i >= gains.Length))  // channel indexes do not exceed the number of channels/gains
+            throw new Exception("Invalid channel routing parameters");
+
+        float[] result = new float[gains.Length];
+        for (int i = 0; i < gains.Length; i++)
+            result[i] = gains[channels[i]];
+
+        return result;
+    }
+
     /// <summary>
-    /// Fills the map with gains
+    /// The sound circles the driver clockwise on the top speakers, then move down, 
+    /// and circles the driver counter-clockwise on the bottom speakers
+    /// </summary>
+    /// <param name="motu">MOTU device to play the sound</param>
+    private void PlayCabinTraversingSound(Motu motu)
+    {
+        int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
+        if (enabledChannelCount < 2)
+        {
+            Console.WriteLine($"Not enough enabled channels to play the curlcular sound on {motu.Location} speakers");
+            return;
+        }
+
+        var tone = new SoundPlayer.ToneDescription()
+        {
+            ToneType = SoundPlayer.ToneType.Triangle,
+            Frequency = 440,
+            Gain = 1,
+            PulseDuration = 0,
+            TotalDuration = 0
+        };
+        tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
+
+        float direction = 0;
+        float[] map = new float[enabledChannelCount];
+        int[] channelRouter = [0, 1, 3, 2, 6, 7, 5, 4]; // these indexes reflect the cabin speakers connection order
+
+        DirectionToMap(direction, map);
+        map = Reroute(channelRouter, map);
+        _soundPlayerClient.SetChannelMap(map);
+
+        _ = _soundPlayerClient.PlayTone(tone, motu.DeviceId);
+
+        motu.IsPlaying = true;
+
+        Task.Run(async () =>
+        {
+            while (direction < 1f)
+            {
+                await Task.Delay(40);
+
+                direction += 0.01f;
+
+                DirectionToMap(direction, map);
+                map = Reroute(channelRouter, map);
+                _soundPlayerClient.SetChannelMap(map);
+            }
+
+            _soundPlayerClient.Stop();
+            motu.IsPlaying = false;
+        });
+    }
+
+    /// <summary>
+    /// Fills the map with gains. 
+    /// Requires at least two channels (i.e. the map stores at least 2 elements).
     /// </summary>
     /// <param name="direction">0..1</param>
-    /// <param name="map">the buffer to fill</param>
-    static void DirectionToCircularMap(float direction, float[] map)
+    /// <param name="map">the buffer to fill, initialized with at least two elements</param>
+    private static void DirectionToMap(float direction, float[] map)
     {
         if (map.Length < 2)
             return;
 
         if (map.Length == 2)
         {
-            if (direction > 0.5f)
-                direction = 1f - direction;
+            map[0] = (float)(Math.Cos(direction * Math.PI) + 1.0) / 2;
+            map[1] = (float)(Math.Sin(direction * Math.PI) + 1.0) / 2;
+            return;
+        }
+        
+        int n = map.Length;
 
-            map[0] = direction <= 0.25f ? 1 : (1f - 2f * direction) * 2;
-            map[1] = direction >= 0.25f ? 1 : direction * 4;
+        direction *= n - 1;
+
+        // The map is a cos function at direction of ±π, otherwise 0:
+        //         ⟋¯⟍
+        //        /    \
+        // ____⎽⎽⎼⎼⎻⎺      ⎺⎻⎼⎼⎽⎽____
+        // https://www.desmos.com/calculator/cvxvjwuvrk
+
+        for (int i = 0; i < n; i++)
+        {
+            var a = (Math.Cos(Math.PI * (i - direction)) + 1) / 2;
+            map[i] = (i < direction - 1) || (i > direction + 1) ? 0f : (float)a;
+        }
+    }
+
+    /// <summary>
+    /// Fills the map with gains. 
+    /// The algorithm assumes that the first channel is following the last channel, 
+    /// i.e. the speakers are arranged in a cirlce.
+    /// Requires at least two channels (i.e. the map stores at least 2 elements).
+    /// </summary>
+    /// <param name="direction">0..1</param>
+    /// <param name="map">the buffer to fill, initialized with at least two elements</param>
+    private static void DirectionToCircularMap(float direction, float[] map)
+    {
+        if (map.Length < 2)
+            return;
+
+        if (map.Length == 2)
+        {
+            map[0] = (float)(Math.Cos(direction * 2 * Math.PI) + 1.0)/2;
+            map[1] = (float)(Math.Sin(direction * 2 * Math.PI) + 1.0)/2;
             return;
         }
 
@@ -209,10 +323,10 @@ internal class SireneController
         var directionP0 = direction * n;
         var directionP1 = (direction - 1f) * n;
 
-        // The map is a normal distribution scaled, shifted down, and cut from the bottom:
-        //      ⟋¯⟍
-        //     /    \
-        // ¯¯¯¯      ¯¯¯¯
+        // The map is a normal distribution scaled, shifted down, cut from the bottom, and distored by raising to a power:
+        //         ⟋¯⟍
+        //        /    \
+        // ____⎽⎽⎼⎼⎻⎺      ⎺⎻⎼⎼⎽⎽____
         // https://www.desmos.com/calculator/xh2bw7m6qt
 
         double scale = 2;
