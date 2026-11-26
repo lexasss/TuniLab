@@ -151,10 +151,16 @@
                                 </Binding>
                             </TextBox.Text>
                         </TextBox>
-                        <Label Grid.Row="4" Grid.Column="0"
+                    </Grid>
+                    <Grid Margin="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0"
                                Style="{StaticResource OptionName}"
                                Content="Channels"/>
-                        <ItemsControl Grid.Row="4" Grid.Column="1"
+                        <ItemsControl Grid.Column="1"
                                       ItemsSource="{Binding Channels}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>

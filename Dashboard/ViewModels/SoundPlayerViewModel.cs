@@ -79,7 +79,7 @@ public partial class SoundPlayerViewModel : ObservableObject
     public partial bool IsPlayingEachChannel { get; set; } = false;
     public bool CanTogglePlayback => IsAvailable && !IsPlayingEachChannel &&
         (IsPlaying || PlaybackType == PlaybackType.Tone || Filename.Length > 0) && 
-        Channels.Any(c => c.IsChecked);
+        (Channels.Any(c => c.IsChecked) || PlaybackType == PlaybackType.File);
     public bool CanToggleTonePlayback => IsAvailable && !IsPlaying &&
         (IsPlayingEachChannel || PlaybackType == PlaybackType.Tone) &&
         Channels.Any(c => c.IsChecked);
@@ -146,11 +146,19 @@ public partial class SoundPlayerViewModel : ObservableObject
 
         if (PlaybackType == PlaybackType.File)
         {
-            IsPlaying = await _client.PlayFile(Filename);
+            var file = new SoundPlayer.FileDescription
+            {
+                Filename = Filename
+            };
+
+            if (Channels.Any(c => c.IsChecked))
+                foreach (var channel in Channels)
+                    file.ChannelEnablingMap.Add(channel.IsChecked);
+
+            IsPlaying = await _client.PlayFile(file);
         }
         else
         {
-            IsPlaying = true;
             var tone = new SoundPlayer.ToneDescription {
                 ToneType = ToneType,
                 Frequency = ToneFrequency,
@@ -162,6 +170,7 @@ public partial class SoundPlayerViewModel : ObservableObject
             foreach (var channel in Channels)
                 tone.ChannelEnablingMap.Add(channel.IsChecked);
 
+            IsPlaying = true;
             await _client.PlayTone(tone);
         }
 

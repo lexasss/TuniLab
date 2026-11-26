@@ -6,7 +6,6 @@ namespace Server.SoundPlayer;
 
 public class TonePlayer : IDisposable
 {
-    public double MaxFrequency { get; set; } = 1000;
     public IDirectionalSoundSource? Directional => _channelRouter;
 
     public TonePlayer(

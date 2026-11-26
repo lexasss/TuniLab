@@ -52,18 +52,23 @@ enum ToneType {
 }
 
 message ToneDescription {
-	ToneType toneType = 3;
-	double frequency = 4;
-	double gain = 5;
-	int32 pulseDuration = 6;
-	int32 totalDuration = 7;
-	repeated bool channelEnablingMap = 8;
+	ToneType toneType = 1;
+	double frequency = 2;
+	double gain = 3;
+	int32 pulseDuration = 4;
+	int32 totalDuration = 5;
+	repeated bool channelEnablingMap = 6;
+}
+
+message FileDescription {
+	string filename = 1;
+	repeated bool channelEnablingMap = 2;
 }
 
 message SoundDescription {
 	string deviceId = 1;
 	oneof sound {
-		string fileName = 2;
+		FileDescription file = 2;
 		ToneDescription tone = 3;
 	}
 }

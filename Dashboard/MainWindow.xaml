@@ -10,7 +10,7 @@
         Style="{StaticResource MaterialDesignWindow}"
         Title="Driving Lab Client Example"
         Height="916"
-        Width="1224"
+        Width="1430"
         MinHeight="458"
         MinWidth="204">
 
@@ -21,6 +21,7 @@
         </Grid.RowDefinitions>
 
         <Grid.ColumnDefinitions>
+            <ColumnDefinition />
             <ColumnDefinition />
             <ColumnDefinition />
             <ColumnDefinition />
@@ -82,8 +83,8 @@
             DataContext="{Binding TobiiEyeX}" />
 
         <views:Carla
-            Grid.Row="1"
-            Grid.Column="4"
+            Grid.Row="0"
+            Grid.Column="6"
             DataContext="{Binding Carla}" />
     </Grid>
 

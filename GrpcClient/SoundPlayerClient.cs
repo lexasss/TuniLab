@@ -39,7 +39,7 @@ public sealed class SoundPlayerClient
         _client.SetChannelMap(channelMap);
     }
 
-    public async Task<bool> PlayFile(string filename, string? device = null)
+    public async Task<bool> PlayFile(SoundPlayer.FileDescription file, string? device = null)
     {
         if (!_isAvailable)
             return false;
@@ -47,7 +47,7 @@ public sealed class SoundPlayerClient
         var response = await _client.PlayAsync(new SoundPlayer.SoundDescription()
         {
             DeviceId = device ?? DeviceId,
-            FileName = filename,
+            File = file,
         });
         return response.Value;
     }

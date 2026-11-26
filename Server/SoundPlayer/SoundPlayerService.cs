@@ -35,7 +35,7 @@ public class SoundPlayerService :
     public void Dispose()
     {
         _tonePlayer?.Dispose();
-        _audioFile?.Dispose();
+        _filePlayer?.Dispose();
         _soundPlayer?.Dispose();
         _baseService?.Dispose();
 
@@ -98,11 +98,11 @@ public class SoundPlayerService :
             _tonePlayer = PlayTone(_soundPlayer, request.Tone);
             result = true;
         }
-        else if (request.SoundCase == Proto.SoundDescription.SoundOneofCase.FileName)
+        else if (request.SoundCase == Proto.SoundDescription.SoundOneofCase.File)
         {
-            _audioFile?.Dispose();
-            _audioFile = PlayFile(_soundPlayer, request.FileName);
-            result = _audioFile != null;
+            _filePlayer?.Dispose();
+            _filePlayer = PlayFile(_soundPlayer, request.File);
+            result = _filePlayer != null;
         }
         else
         {
@@ -132,8 +132,8 @@ public class SoundPlayerService :
         _tonePlayer?.Dispose();
         _tonePlayer = null;
 
-        _audioFile?.Dispose();
-        _audioFile = null;
+        _filePlayer?.Dispose();
+        _filePlayer = null;
 
         _soundPlayer?.Stop();
         _soundPlayer?.Dispose();
@@ -171,7 +171,7 @@ public class SoundPlayerService :
 
     WasapiPlayer? _soundPlayer;
     TonePlayer? _tonePlayer;
-    AudioFileReader? _audioFile;
+    FilePlayer? _filePlayer;
     CancellationTokenSource? _toneCancellationSource;
 
     float[] _channelMap = [];
@@ -221,7 +221,7 @@ public class SoundPlayerService :
         {
             _logger.LogInformation("Playback finished");
             _baseService.Publish(new Proto.Event {
-                PlaybackFinished = System.IO.Path.GetFileName(_audioFile?.FileName) ?? string.Empty
+                PlaybackFinished = System.IO.Path.GetFileName(_filePlayer?.FilePath) ?? string.Empty
             });
         };
 
@@ -269,35 +269,33 @@ public class SoundPlayerService :
         return tonePlayer;
     }
 
-    private AudioFileReader? PlayFile(
+    private FilePlayer? PlayFile(
         WasapiPlayer soundPlayer,
-        string filename)
+        Proto.FileDescription file)
     {
         string? filePath = Tools.FileHelper.FileNameToPath(
-            filename,
+            file.Filename,
             StorageFolder,
             _logger);
 
         if (string.IsNullOrEmpty(filePath))
             return null;
 
-        AudioFileReader ? audioFile = null;
-
         try
         {
-            audioFile = new AudioFileReader(filePath);
+            var filePlayer = new FilePlayer(soundPlayer, filePath, file.ChannelEnablingMap.ToArray());
+            filePlayer.Directional?.SetChannelMap(_channelMap);
+            filePlayer.Start();
 
-            soundPlayer.Init(audioFile);
-            soundPlayer.Play();
-
-            _logger.LogInformation("Playing sound from {filename}", filename);
+            _logger.LogInformation("Playing sound from {filename}", file.Filename);
+            return filePlayer;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error playing {filename}: {reason}", filename, ex.Message);
+            _logger.LogError(ex, "Error playing {filename}: {reason}", file.Filename, ex.Message);
         }
 
-        return audioFile;
+        return null;
     }
 
     #endregion

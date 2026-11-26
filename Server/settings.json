@@ -3,6 +3,6 @@
     "Ip": "127.0.0.1",
     "Port": 20777,
     "IsEmulating": true,
-    "IsVerbose": true
+    "IsVerbose": false
   }
 }
