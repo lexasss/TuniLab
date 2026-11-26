@@ -28,11 +28,11 @@ internal class SireneController
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
             if (e.Id == 0 && e.IsPressed && !(_motuWalls?.IsPlaying ?? true))
-                PlayCircularSound(_motuWalls, _tone440);
+                PlayCircularSound(_motuWalls, StartTonePlayback);
             else if (e.Id == 1 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCircularSound(_motuCabin, _tone440);
+                PlayCircularSound(_motuCabin, StartFilePlayback);
             else if (e.Id == 2 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCabinTraversingSound(_motuCabin, _tone440);
+                PlayCabinTraversingSound(_motuCabin, StartTonePlayback);
         };
     }
 
@@ -66,6 +66,10 @@ internal class SireneController
         TotalDuration = 0
     };
 
+    readonly SoundPlayer.FileDescription _fileCounting = new()
+    {
+        Filename = "counting.mp3"
+    };
 
     Motu? _motuWalls;
     Motu? _motuCabin;
@@ -135,6 +139,20 @@ internal class SireneController
         return index < 0 ? null : multichannelDevices[index];
     }
 
+    private void StartTonePlayback(Motu motu)
+    {
+        _tone440.ChannelEnablingMap.Clear();
+        _tone440.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
+        _ = _soundPlayerClient.PlayTone(_tone440, motu.DeviceId);
+    }
+
+    private void StartFilePlayback(Motu motu)
+    {
+        _fileCounting.ChannelEnablingMap.Clear();
+        _fileCounting.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
+        _ = _soundPlayerClient.PlayFile(_fileCounting, motu.DeviceId);
+    }
+
     private void InitStreamDeck()
     {
         // blue button for wall circle sound
@@ -144,7 +162,7 @@ internal class SireneController
             FileNameOrColor = "64,160,255"
         });
 
-        // red button for cabin double-Z sound
+        // red button for cabin double-Z sound from a file
         _streamDeckClient.SetKey(new StreamDeck.Key()
         {
             Id = 1,
@@ -159,7 +177,7 @@ internal class SireneController
         });
     }
 
-    private void PlayCircularSound(Motu motu, SoundPlayer.ToneDescription tone)
+    private void PlayCircularSound(Motu motu, Action<Motu> startPlayback)
     {
         int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
@@ -168,16 +186,13 @@ internal class SireneController
             return;
         }
 
-        tone.ChannelEnablingMap.Clear();
-        tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
-
         float direction = 0;
         float[] map = new float[enabledChannelCount];
 
         DirectionToCircularMap(direction, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        _ = _soundPlayerClient.PlayTone(tone, motu.DeviceId);
+        startPlayback(motu);
 
         motu.IsPlaying = true;
 
@@ -216,7 +231,7 @@ internal class SireneController
     /// and circles the driver counter-clockwise on the bottom speakers
     /// </summary>
     /// <param name="motu">MOTU device to play the sound</param>
-    private void PlayCabinTraversingSound(Motu motu, SoundPlayer.ToneDescription tone)
+    private void PlayCabinTraversingSound(Motu motu, Action<Motu> startPlayback)
     {
         int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
         if (enabledChannelCount < 2)
@@ -224,9 +239,6 @@ internal class SireneController
             Console.WriteLine($"Not enough enabled channels to play the curlcular sound on {motu.Location} speakers");
             return;
         }
-
-        tone.ChannelEnablingMap.Clear();
-        tone.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
 
         float direction = 0;
         float[] map = new float[enabledChannelCount];
@@ -236,7 +248,7 @@ internal class SireneController
         map = Reroute(channelRouter, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        _ = _soundPlayerClient.PlayTone(tone, motu.DeviceId);
+        startPlayback(motu);
 
         motu.IsPlaying = true;
 

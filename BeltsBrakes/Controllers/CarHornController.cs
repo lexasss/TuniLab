@@ -30,7 +30,10 @@ internal class CarHornController
                 if (e.TopRightButton2.IsPressed && !_isHornButtonPressed)
                 {
                     _soundPlayerClient.DeviceId = string.Empty; // default device
-                    _ = _soundPlayerClient.PlayFile("car-horn.mp3");
+                    _ = _soundPlayerClient.PlayFile(new SoundPlayer.FileDescription
+                    {
+                        Filename = "car-horn.mp3"
+                    });
                     _isPlayingHornSound = true;
                 }
 
