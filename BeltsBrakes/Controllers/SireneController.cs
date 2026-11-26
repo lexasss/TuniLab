@@ -159,7 +159,7 @@ internal class SireneController
         float direction = 0;
         float[] map = new float[enabledChannelCount];
 
-        DirectionToMap(direction, map);
+        DirectionToCircularMap(direction, map);
         _soundPlayerClient.SetChannelMap(map);
 
         _ = _soundPlayerClient.PlayTone(tone, motu.DeviceId);
@@ -174,7 +174,7 @@ internal class SireneController
 
                 direction += 0.01f;
 
-                DirectionToMap(direction, map);
+                DirectionToCircularMap(direction, map);
                 _soundPlayerClient.SetChannelMap(map);
             }
 
@@ -188,7 +188,7 @@ internal class SireneController
     /// </summary>
     /// <param name="direction">0..1</param>
     /// <param name="map">the buffer to fill</param>
-    static void DirectionToMap(float direction, float[] map)
+    static void DirectionToCircularMap(float direction, float[] map)
     {
         if (map.Length < 2)
             return;
@@ -213,14 +213,12 @@ internal class SireneController
         //      ⟋¯⟍
         //     /    \
         // ¯¯¯¯      ¯¯¯¯
-        // https://www.desmos.com/calculator/tczsny2hmb
-        // Old version had a flat top:
-        // https://www.desmos.com/calculator/s4dj0lchie
+        // https://www.desmos.com/calculator/xh2bw7m6qt
 
         double scale = 2;
         double offset = 1;
         double doubleQ2 = -1.0 / Math.Log(offset / scale); // to be positive within ±1
-        double pow = 1;
+        double pow = 1.8;       // makes the sum of map equal to 1; with p = 1 the sum gets >1 when direction is not an integer
 
         for (int i = 0; i < n; i++)
         {
