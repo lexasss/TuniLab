@@ -83,6 +83,15 @@ public sealed class SoundPlayerClient
         return await FileService.UploadFile(call, filename, "audio");
     }
 
+    public async Task<string[]> GetFiles()
+    {
+        if (!_isAvailable)
+            return [];
+
+        var response = await _client.GetFileListAsync(new Empty());
+        return response.Items.ToArray();
+    }
+
     #region Internal
 
     protected override void Initialize()

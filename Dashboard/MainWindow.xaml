@@ -8,7 +8,7 @@
         xmlns:views="clr-namespace:Dashboard.Views"
         mc:Ignorable="d"
         Style="{StaticResource MaterialDesignWindow}"
-        Title="Driving Lab Client Example"
+        Title="Dashboard: example of TuniLab.Client usage"
         Height="916"
         Width="1430"
         MinHeight="458"

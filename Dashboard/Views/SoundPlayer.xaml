@@ -69,16 +69,36 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBox x:Name="txtFilename"
+                        <ComboBox x:Name="cmbFilename"
+                                  Margin="4,0"
+                                  IsEnabled="{Binding ElementName=rdbPlayFile, Path=IsChecked}"
+                                  IsEditable="True"
+                                  ItemsSource="{Binding Files}"
+                                  Text="{Binding Filename, UpdateSourceTrigger=PropertyChanged}"
+                                  IsTextSearchEnabled="True"
+                                  StaysOpenOnEdit="True"
+                                  md:HintAssist.Hint="filename">
+                            <ComboBox.ToolTip>
+                                <TextBlock>
+                                    <Run Text="A WAV, MP3 or AIFF file to play."/>
+                                    <LineBreak/>
+                                    <Run Text="Use either the absolute path,"/>
+                                    <LineBreak/>
+                                    <Run Text="or the path relative to the 'Sounds' folder"/>
+                                    <LineBreak/>
+                                    <Run Text="in the server application root folder"/>
+                                </TextBlock>
+                            </ComboBox.ToolTip>
+                        </ComboBox>
+
+                        <!--TextBox x:Name="txtFilename"
                                  Margin="4,0"
                                  IsEnabled="{Binding ElementName=rdbPlayFile, Path=IsChecked}"
                                  Text="{Binding Filename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  md:HintAssist.Hint="filename">
                             <TextBox.ToolTip>
                                 <TextBlock>
-                                    <Run Text="A WAV file to play."/>
-                                    <LineBreak/>
-                                    <Run Text="MP3 and other formats are not supported."/>
+                                    <Run Text="A WAV, MP3 or AIFF file to play."/>
                                     <LineBreak/>
                                     <Run Text="Use either the absolute path,"/>
                                     <LineBreak/>
@@ -87,7 +107,7 @@
                                     <Run Text="in the server application root folder"/>
                                 </TextBlock>
                             </TextBox.ToolTip>
-                        </TextBox>
+                        </TextBox-->
                         <Button Grid.Column="1"
                                 Style="{StaticResource MaterialDesignPaperDarkButton}"
                                 Content="↑"

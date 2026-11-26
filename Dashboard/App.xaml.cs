@@ -8,6 +8,8 @@ namespace Dashboard;
 
 public partial class App : Application
 {
+    public static string Name { get; } = "Dashboard";
+
     IHost? _host;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -94,7 +96,7 @@ public partial class App : Application
                         "The functionality may not match, \n" +
                         "causing either the server or the app to crash\n\n" +
                         $"Do you want to continue?",
-                        "Dashboard",
+                        Name,
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Exclamation)
                     == MessageBoxResult.No)
@@ -107,7 +109,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Dashboard", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, Name, MessageBoxButton.OK, MessageBoxImage.Error);
 
             await CleanUp();
             Shutdown();

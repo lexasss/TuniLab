@@ -58,6 +58,7 @@ class Program
 
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         _logger = loggerFactory.CreateLogger("MAIN");
+        _logger.LogInformation("Core version {version}, build time {bt}", Common.Constants.CORE_VERSION, Core.BuildInfo.BuildTime);
 
         var creators = new Task<(IService, Grpc.Core.Server)?>[]
         {

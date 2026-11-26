@@ -27,7 +27,7 @@ public interface ILoggable
 
 public static class Constants
 {
-    public const string CORE_VERSION = "0.1";
+    public const string CORE_VERSION = "0.2";
     public const int FILE_CHUNK_SIZE = 64 * 1024;
 
 }

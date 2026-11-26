@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DirectN;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -96,15 +97,17 @@ public partial class SoundPlayerViewModel : ObservableObject
     public partial string Data { get; set; } = string.Empty;
     
     public ObservableCollection<ChannelViewModel> Channels { get; } = [];
+    public ObservableCollection<string> Files { get; } = [];
 
     public SoundPlayerViewModel(
         GrpcClients.SoundPlayerClient soundPlayerClient)
     {
         _client = soundPlayerClient;
-        _client.AvailabilityChanged += (s, e) =>
+        _client.AvailabilityChanged += async (s, e) =>
         {
             Devices = _client.GetDevices().Items.ToArray();
             Device = Devices.FirstOrDefault();
+            Files.AddRange(await _client.GetFiles());
             OnPropertyChanged(nameof(IsAvailable));
             OnPropertyChanged(nameof(CanTogglePlayback));
             OnPropertyChanged(nameof(CanToggleTonePlayback));
@@ -243,6 +246,12 @@ public partial class SoundPlayerViewModel : ObservableObject
     {
         if (!System.IO.File.Exists(Filename))
         {
+            MessageBox.Show("The file does not exist", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+        if (Files.Contains(Filename))
+        {
+            MessageBox.Show("The file already uploaded", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -253,11 +262,17 @@ public partial class SoundPlayerViewModel : ObservableObject
             if (result.Size > 0)
             {
                 Filename = result.FileName;
+                Files.Add(Filename);
                 Data = "File uploaded successfully.";
+            }
+            else
+            {
+                throw new Exception();
             }
         }
         catch
         {
+            MessageBox.Show("Failed to upload the file.", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
             Data = "Failed to upload the file.";
         }
     }
