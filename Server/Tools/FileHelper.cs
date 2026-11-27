@@ -62,7 +62,7 @@ internal class FileHelper
             {
                 foreach (var file in Directory.EnumerateFiles(folder, $"*{ext}"))
                 {
-                    files.Add(Path.GetFileNameWithoutExtension(file));
+                    files.Add(Path.GetFileName(file));
                 }
             }
 

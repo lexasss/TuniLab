@@ -53,9 +53,14 @@
                             <ColumnDefinition/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding Filename, UpdateSourceTrigger=PropertyChanged}"
-                                 md:HintAssist.Hint="filename">
-                            <TextBox.ToolTip>
+                        <ComboBox Margin="4,0"
+                                  IsEditable="True"
+                                  ItemsSource="{Binding Files}"
+                                  Text="{Binding Filename, UpdateSourceTrigger=PropertyChanged}"
+                                  IsTextSearchEnabled="True"
+                                  StaysOpenOnEdit="True"
+                                  md:HintAssist.Hint="filename">
+                            <ComboBox.ToolTip>
                                 <TextBlock>
                                     <Run Text="A media file to show / play."/>
                                     <LineBreak/>
@@ -67,8 +72,8 @@
                                     <LineBreak/>
                                     <Run Text="in the server application root folder"/>
                                 </TextBlock>
-                            </TextBox.ToolTip>
-                        </TextBox>
+                            </ComboBox.ToolTip>
+                        </ComboBox>
                         <Button Grid.Column="1"
                                 Style="{StaticResource MaterialDesignPaperDarkButton}"
                                 Content="↑"

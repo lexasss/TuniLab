@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
+using System.Windows;
 
 namespace Dashboard;
 
@@ -32,13 +34,19 @@ public partial class ScreenViewModel : ObservableObject
     [ObservableProperty]
     public partial string Data { get; set; } = string.Empty;
 
+    public ObservableCollection<string> Files { get; } = [];
+
     public ScreenViewModel(GrpcClients.ScreenClient screenClient)
     {
         _client = screenClient;
-        _client.AvailabilityChanged += (s, e) =>
+        _client.AvailabilityChanged += async (s, e) =>
         {
             Screens = _client.GetScreens().Items.ToArray();
             Screen = Screens.FirstOrDefault();
+
+            foreach (var file in await _client.GetFiles())
+                Files.Add(file);
+
             OnPropertyChanged(nameof(IsAvailable));
             OnPropertyChanged(nameof(CanToggleMedia));
             OnPropertyChanged(nameof(CanUploadFile));
@@ -85,6 +93,12 @@ public partial class ScreenViewModel : ObservableObject
     {
         if (!System.IO.File.Exists(Filename))
         {
+            MessageBox.Show("The file does not exist", App.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        if (Files.Contains(Filename))
+        {
+            MessageBox.Show("The file already uploaded", App.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -94,11 +108,14 @@ public partial class ScreenViewModel : ObservableObject
             var result = await _client.UploadFile(Filename);
             if (result.Size > 0)
             {
+                Filename = result.FileName;
+                Files.Add(Filename);
                 Data = "File uploaded successfully.";
             }
         }
         catch
         {
+            MessageBox.Show("Failed to upload the file.", App.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             Data = "Failed to upload the file.";
         }
     }

@@ -1,8 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DirectN;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows;
 
 namespace Dashboard;
 
@@ -107,7 +107,10 @@ public partial class SoundPlayerViewModel : ObservableObject
         {
             Devices = _client.GetDevices().Items.ToArray();
             Device = Devices.FirstOrDefault();
-            Files.AddRange(await _client.GetFiles());
+
+            foreach (var file in await _client.GetFiles())
+                Files.Add(file);
+
             OnPropertyChanged(nameof(IsAvailable));
             OnPropertyChanged(nameof(CanTogglePlayback));
             OnPropertyChanged(nameof(CanToggleTonePlayback));
@@ -246,12 +249,12 @@ public partial class SoundPlayerViewModel : ObservableObject
     {
         if (!System.IO.File.Exists(Filename))
         {
-            MessageBox.Show("The file does not exist", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("The file does not exist", App.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
         if (Files.Contains(Filename))
         {
-            MessageBox.Show("The file already uploaded", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("The file already uploaded", App.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -272,7 +275,7 @@ public partial class SoundPlayerViewModel : ObservableObject
         }
         catch
         {
-            MessageBox.Show("Failed to upload the file.", App.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Failed to upload the file.", App.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             Data = "Failed to upload the file.";
         }
     }
