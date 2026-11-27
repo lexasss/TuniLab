@@ -8,15 +8,23 @@ import "google/protobuf/empty.proto";
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Returns a lists of all active sound devices
 	rpc GetDevices (google.protobuf.Empty) returns (Devices) {}
 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
+	// Sets gains of each audio channel, each gain between 0 and 1
 	rpc SetChannelMap (ChannelMap) returns (google.protobuf.Empty) {}
-	rpc Play (SoundDescription) returns (Common.Bool) {}
+
+	// Plays either a file or a tone.
+	// Returns 0 if cannot play the sound, duration of the audio file or tone in milliseconds
+	// (or 0x7FFFFFFF if the tone has no duration limit)
+	rpc Play (SoundDescription) returns (Common.Int) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
 	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
+
+	// Returns a list of file stored in the server's app "sounds" folder
 	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
 }
 
@@ -30,7 +38,7 @@ message Devices {
 	repeated Device items = 1;
 }
 
-// Gains for each channel, or empty array to omit mapping
+// Gains for each channel between 0 and 1, or empty array to omit mapping
 message ChannelMap {
 	repeated float items = 1;
 }

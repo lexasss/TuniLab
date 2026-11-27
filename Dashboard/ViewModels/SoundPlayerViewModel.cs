@@ -158,7 +158,7 @@ public partial class SoundPlayerViewModel : ObservableObject
                 foreach (var channel in Channels)
                     file.ChannelEnablingMap.Add(channel.IsChecked);
 
-            IsPlaying = await _client.PlayFile(file);
+            IsPlaying = await _client.PlayFile(file) != null;
         }
         else
         {

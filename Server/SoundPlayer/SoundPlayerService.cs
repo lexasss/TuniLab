@@ -79,15 +79,16 @@ public class SoundPlayerService :
     {
         _channelMap = request.Items.ToArray();
         _tonePlayer?.Directional?.SetChannelMap(_channelMap);
+        _filePlayer?.Directional?.SetChannelMap(_channelMap);
 
         return Common.Awaitable.Empty;
     }
 
-    public override Task<Common.Bool> Play(
+    public override Task<Common.Int> Play(
         Proto.SoundDescription request,
         ServerCallContext context)
     {
-        bool result = false;
+        int result = 0;
 
         _soundPlayer?.Dispose();
         _soundPlayer = CreatePlayer(request.DeviceId);
@@ -96,13 +97,13 @@ public class SoundPlayerService :
         {
             _tonePlayer?.Dispose();
             _tonePlayer = PlayTone(_soundPlayer, request.Tone);
-            result = true;
+            result = request.Tone.TotalDuration > 0 ? request.Tone.TotalDuration : int.MaxValue;
         }
         else if (request.SoundCase == Proto.SoundDescription.SoundOneofCase.File)
         {
             _filePlayer?.Dispose();
             _filePlayer = PlayFile(_soundPlayer, request.File);
-            result = _filePlayer != null;
+            result = (int?)_filePlayer?.Duration.TotalMilliseconds ?? 0;
         }
         else
         {

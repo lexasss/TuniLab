@@ -5,6 +5,8 @@ namespace Server.SoundPlayer;
 public class FilePlayer : IDisposable
 {
     public string FilePath { get; }
+    public TimeSpan Duration => _audioFile.TotalTime;
+
     public IDirectionalSoundSource? Directional => _channelRouter;
 
     public FilePlayer(
@@ -15,18 +17,13 @@ public class FilePlayer : IDisposable
         FilePath = filePath;
 
         _player = player;
+        _audioFile = new AudioFileReader(filePath);
 
         if (channelEnablingMap.Length == _player.OutputWaveFormat.Channels)
         {
-            _audioFile = new AudioFileReader(filePath);
-
             _channelRouter = new ChannelRouter(
                 _audioFile.ToMono(),
                 channelEnablingMap);
-        }
-        else
-        {
-            _audioFile = new AudioFileReader(filePath);
         }
     }
 
@@ -62,7 +59,7 @@ public class FilePlayer : IDisposable
 
     readonly WasapiPlayer _player;
     readonly ChannelRouter? _channelRouter;
-    readonly AudioFileReader? _audioFile = null;
+    readonly AudioFileReader _audioFile;
 
     #endregion
 }

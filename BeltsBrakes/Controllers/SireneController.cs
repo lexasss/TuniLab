@@ -27,21 +27,35 @@ internal class SireneController
 
         _streamDeckClient.KeyStateChanged += (s, e) =>
         {
-            if (e.Id == 0 && e.IsPressed && !(_motuWalls?.IsPlaying ?? true))
-                PlayCircularSound(_motuWalls, StartTonePlayback);
-            else if (e.Id == 1 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCircularSound(_motuCabin, StartFilePlayback);
-            else if (e.Id == 2 && e.IsPressed && !(_motuCabin?.IsPlaying ?? true))
-                PlayCabinTraversingSound(_motuCabin, StartTonePlayback);
+            if (e.Id == 0 && e.IsPressed && !(_wallsSoundDevice?.IsPlaying ?? true))
+                _ = PlayCircularSound(_wallsSoundDevice, async (sd) => await StartTonePlayback(sd, _tone440));
+            else if (e.Id == 1 && e.IsPressed && !(_cabinSoundDevice?.IsPlaying ?? true))
+                _ = PlayCircularSound(_cabinSoundDevice, async (sd) => await StartFilePlayback(sd, _fileCounting));
+            else if (e.Id == 2 && e.IsPressed && !(_cabinSoundDevice?.IsPlaying ?? true))
+                _ = PlayCabinTraversingSound(_cabinSoundDevice, async (sd) => await StartTonePlayback(sd, _tone440));
         };
     }
+
+    /*public void Test()
+    {
+        if (_cabinSoundDevice == null)
+        {
+            var devices = _soundPlayerClient.GetDevices().Items.ToArray();
+            _cabinSoundDevice = InitSoundDeviceDevice(devices, "test", 2, "Logitech");
+        }
+        if (!(_cabinSoundDevice?.IsPlaying ?? true))
+            _ = PlayCircularSound(_cabinSoundDevice, async (sd) => await StartFilePlayback(sd, _fileCounting));
+    }*/
+
+    #region Internal
 
     const string WALL_SPEAKERS_DEVICE = "(2- MOTU Pro Audio)";
     const int WALL_SPEAKERS_COUNT = 16;
     const string CABIN_SPEAKERS_DEVICE = "(MOTU Pro Audio)";
     const int CABIN_SPEAKERS_COUNT = 8;
+    const int CHANNEL_MAP_UPDATE_INTERVAL = 40; // ms
 
-    class Motu(
+    class SoundDevice(
         string location,
         string deviceId,
         int channelCount,
@@ -71,8 +85,8 @@ internal class SireneController
         Filename = "counting.mp3"
     };
 
-    Motu? _motuWalls;
-    Motu? _motuCabin;
+    SoundDevice? _wallsSoundDevice;
+    SoundDevice? _cabinSoundDevice;
 
     private void InitSound()
     {
@@ -87,12 +101,12 @@ internal class SireneController
             return;
         }
 
-        _motuCabin = InitMotuDevice(multichannelDevices, "cabin", CABIN_SPEAKERS_COUNT, CABIN_SPEAKERS_DEVICE);
-        _motuWalls = InitMotuDevice(multichannelDevices, "wall", WALL_SPEAKERS_COUNT, WALL_SPEAKERS_DEVICE);
+        _cabinSoundDevice = InitSoundDeviceDevice(multichannelDevices, "cabin", CABIN_SPEAKERS_COUNT, CABIN_SPEAKERS_DEVICE);
+        _wallsSoundDevice = InitSoundDeviceDevice(multichannelDevices, "wall", WALL_SPEAKERS_COUNT, WALL_SPEAKERS_DEVICE);
     }
 
 
-    private static Motu? InitMotuDevice(
+    private static SoundDevice? InitSoundDeviceDevice(
         SoundPlayer.Device[] multichannelDevices, 
         string speakersLocation,
         int speakersCount,
@@ -110,7 +124,7 @@ internal class SireneController
             for (int i = 0; i < soundDevice.ChannelCount; i++)
                 channelEnablingMap[i] = i < Math.Min(speakersCount, soundDevice.ChannelCount);
 
-            return new Motu(speakersLocation, soundDevice.Id, soundDevice.ChannelCount, channelEnablingMap);
+            return new SoundDevice(speakersLocation, soundDevice.Id, soundDevice.ChannelCount, channelEnablingMap);
         }
 
         return null;
@@ -139,18 +153,19 @@ internal class SireneController
         return index < 0 ? null : multichannelDevices[index];
     }
 
-    private void StartTonePlayback(Motu motu)
+    private async Task<int?> StartTonePlayback(SoundDevice sd, SoundPlayer.ToneDescription tone)
     {
-        _tone440.ChannelEnablingMap.Clear();
-        _tone440.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
-        _ = _soundPlayerClient.PlayTone(_tone440, motu.DeviceId);
+        tone.ChannelEnablingMap.Clear();
+        tone.ChannelEnablingMap.AddRange(sd.ChannelEnablingMap);
+        await _soundPlayerClient.PlayTone(tone, sd.DeviceId);
+        return 0;
     }
 
-    private void StartFilePlayback(Motu motu)
+    private async Task<int?> StartFilePlayback(SoundDevice sd, SoundPlayer.FileDescription file)
     {
-        _fileCounting.ChannelEnablingMap.Clear();
-        _fileCounting.ChannelEnablingMap.AddRange(motu.ChannelEnablingMap);
-        _ = _soundPlayerClient.PlayFile(_fileCounting, motu.DeviceId);
+        file.ChannelEnablingMap.Clear();
+        file.ChannelEnablingMap.AddRange(sd.ChannelEnablingMap);
+        return await _soundPlayerClient.PlayFile(file, sd.DeviceId);
     }
 
     private void InitStreamDeck()
@@ -177,14 +192,9 @@ internal class SireneController
         });
     }
 
-    private void PlayCircularSound(Motu motu, Action<Motu> startPlayback)
+    private async Task PlayCircularSound(SoundDevice sd, Func<SoundDevice, Task<int?>> startPlayback)
     {
-        int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
-        if (enabledChannelCount < 2)
-        {
-            Console.WriteLine($"Not enough enabled channels to play the curlcular sound on {motu.Location} speakers");
-            return;
-        }
+        int enabledChannelCount = sd.ChannelEnablingMap.Count(true);
 
         float direction = 0;
         float[] map = new float[enabledChannelCount];
@@ -192,24 +202,28 @@ internal class SireneController
         DirectionToCircularMap(direction, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        startPlayback(motu);
+        int? soundDuration = await startPlayback(sd);
 
-        motu.IsPlaying = true;
+        sd.IsPlaying = true;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
+            float step = 0.01f;
+            if (soundDuration != null && soundDuration > 0 && soundDuration < int.MaxValue)
+                step = (float)CHANNEL_MAP_UPDATE_INTERVAL / (int)soundDuration;
+
             while (direction < 1f)
             {
-                await Task.Delay(40);
+                await Task.Delay(CHANNEL_MAP_UPDATE_INTERVAL);
 
-                direction += 0.01f;
+                direction += step;
 
                 DirectionToCircularMap(direction, map);
                 _soundPlayerClient.SetChannelMap(map);
             }
 
             _soundPlayerClient.Stop();
-            motu.IsPlaying = false;
+            sd.IsPlaying = false;
         });
     }
 
@@ -230,13 +244,12 @@ internal class SireneController
     /// The sound circles the driver clockwise on the top speakers, then move down, 
     /// and circles the driver counter-clockwise on the bottom speakers
     /// </summary>
-    /// <param name="motu">MOTU device to play the sound</param>
-    private void PlayCabinTraversingSound(Motu motu, Action<Motu> startPlayback)
+    private async Task PlayCabinTraversingSound(SoundDevice sd, Func<SoundDevice, Task<int?>> startPlayback)
     {
-        int enabledChannelCount = motu.ChannelEnablingMap.Count(true);
-        if (enabledChannelCount < 2)
+        int enabledChannelCount = sd.ChannelEnablingMap.Count(true);
+        if (enabledChannelCount != CABIN_SPEAKERS_COUNT)
         {
-            Console.WriteLine($"Not enough enabled channels to play the curlcular sound on {motu.Location} speakers");
+            Console.WriteLine($"There must be exactly {CABIN_SPEAKERS_COUNT} enabled channels to play the traversing sound");
             return;
         }
 
@@ -248,17 +261,21 @@ internal class SireneController
         map = Reroute(channelRouter, map);
         _soundPlayerClient.SetChannelMap(map);
 
-        startPlayback(motu);
+        int? soundDuration = await startPlayback(sd);
 
-        motu.IsPlaying = true;
+        sd.IsPlaying = true;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
+            float step = 0.01f;
+            if (soundDuration != null && soundDuration > 0 && soundDuration < int.MaxValue)
+                step = (float)CHANNEL_MAP_UPDATE_INTERVAL / (int)soundDuration;
+
             while (direction < 1f)
             {
-                await Task.Delay(40);
+                await Task.Delay(CHANNEL_MAP_UPDATE_INTERVAL);
 
-                direction += 0.01f;
+                direction += step;
 
                 DirectionToMap(direction, map);
                 map = Reroute(channelRouter, map);
@@ -266,7 +283,7 @@ internal class SireneController
             }
 
             _soundPlayerClient.Stop();
-            motu.IsPlaying = false;
+            sd.IsPlaying = false;
         });
     }
 
@@ -284,7 +301,7 @@ internal class SireneController
         if (map.Length == 2)
         {
             map[0] = (float)(Math.Cos(direction * Math.PI) + 1.0) / 2;
-            map[1] = (float)(Math.Sin(direction * Math.PI) + 1.0) / 2;
+            map[1] = (float)(Math.Sin(direction * Math.PI - Math.PI / 2) + 1.0) / 2;
             return;
         }
         
@@ -292,10 +309,10 @@ internal class SireneController
 
         direction *= n - 1;
 
-        // The map is a cos function at direction of ±π, otherwise 0:
-        //         ⟋¯⟍
-        //        /    \
-        // ____⎽⎽⎼⎼⎻⎺      ⎺⎻⎼⎼⎽⎽____
+        // The map is a cos function at directions of ±π, otherwise 0:
+        //         ⎽⎼⎻⎺⎺‾⎺⎺⎻⎼⎽ 
+        //        ╱      ╲
+        // ____⎽⎽⎼⎼⎻⎺         ⎺⎻⎼⎼⎽⎽____
         // https://www.desmos.com/calculator/cvxvjwuvrk
 
         for (int i = 0; i < n; i++)
@@ -320,8 +337,8 @@ internal class SireneController
 
         if (map.Length == 2)
         {
-            map[0] = (float)(Math.Cos(direction * 2 * Math.PI) + 1.0)/2;
-            map[1] = (float)(Math.Sin(direction * 2 * Math.PI) + 1.0)/2;
+            map[0] = (float)(Math.Cos(direction * 2 * Math.PI) + 1.0) / 2;
+            map[1] = (float)(Math.Sin(direction * 2 * Math.PI - Math.PI / 2) + 1.0) / 2;
             return;
         }
 
@@ -349,4 +366,6 @@ internal class SireneController
             map[i] = (float)Math.Pow(Math.Clamp((a0 + a1) * scale - offset, 0, 1), pow);
         }
     }
+
+    #endregion
 }

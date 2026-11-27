@@ -19,7 +19,7 @@ internal class Program
         public bool CarHorn { get; set; }
         public bool Sirene { get; set; }
 
-        public bool HasAnyCaseEnabled => BeltBrakes || SpeedWarning || CarHorn || Sirene;
+        public bool HasCasesEnabled => BeltBrakes || SpeedWarning || CarHorn || Sirene;
     }
 
     static async Task Main(string[] args)
@@ -68,7 +68,7 @@ internal class Program
                 ref acceptAll)
         };
 
-        if (!enabledCases.HasAnyCaseEnabled)
+        if (!enabledCases.HasCasesEnabled)
             return;
 
         Console.WriteLine();

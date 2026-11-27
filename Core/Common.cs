@@ -27,7 +27,7 @@ public interface ILoggable
 
 public static class Constants
 {
-    public const string CORE_VERSION = "0.2";
+    public const string CORE_VERSION = "0.3";
     public const int FILE_CHUNK_SIZE = 64 * 1024;
 
 }
@@ -42,6 +42,16 @@ public static class Awaitable
         Task.FromResult(Bool.False);
     public static Task<Bool> From(bool value) =>
         Task.FromResult(new Bool()
+        {
+            Value = value
+        });
+    public static Task<Int> From(int value) =>
+        Task.FromResult(new Int()
+        {
+            Value = value
+        });
+    public static Task<Double> From(double value) =>
+        Task.FromResult(new Double()
         {
             Value = value
         });
