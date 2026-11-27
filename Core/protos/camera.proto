@@ -7,25 +7,35 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if both camera and its stream are set
 	rpc IsCameraStreamReady (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is recording video to a file
 	rpc IsRecording (google.protobuf.Empty) returns (Common.Bool) {}
 
-	rpc GetVideoFileName (google.protobuf.Empty) returns (Common.String) {}
+	// Returns true if video file name was set
 	rpc SetVideoFileName (Common.String) returns (Common.Bool) {}
-		
+	rpc GetVideoFileName (google.protobuf.Empty) returns (Common.String) {}
+
+	// Returns a list of available cameras
 	rpc GetCameras (google.protobuf.Empty) returns (Cameras) {}
+	
+	// Returns true if the camera was set
 	rpc SetCamera (Camera) returns (Common.Bool) {}
 	rpc GetCurrentCamera (google.protobuf.Empty) returns (Camera) {}
+
+	// Returns a list of available video streams
 	rpc GetStreams (google.protobuf.Empty) returns (Streams) {}
+	
+	// Returns true if the stream was set
 	rpc SetStream (Stream) returns (Common.Bool) {}
 	rpc GetCurrentStream (google.protobuf.Empty) returns (Stream) {}
 
-	// Initializes data reading stream, but the data is not polling to clients
-	// until Start is called
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
-	// Enable of disable video recording
-	// (has no effect if camera and stream are not set yet)
+	// Enables video recording if a camera, its stream and file name were already set
 	rpc Start (google.protobuf.Empty) returns (Common.Bool) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }

@@ -8,8 +8,10 @@ import "google/protobuf/empty.proto";
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
 
-	// Returns the core version. Clients must check the version and do not continue
-    // if server's and they own core vesions differ
+	// Returns the version and compilation time of the Core binaries.
+	// Clients must check the version and not continue
+	// if the server's and their own Core versions differ.
+	// If only timestamps differ, it may also not be safe to continue.
 	rpc GetCoreVersion (google.protobuf.Empty) returns (Version) {}
 }
 

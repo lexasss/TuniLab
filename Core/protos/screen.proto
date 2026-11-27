@@ -8,16 +8,27 @@ import "google/protobuf/empty.proto";
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Returns a list of available screen
 	rpc GetScreens (google.protobuf.Empty) returns (Screens) {}
 
-	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
+	// Tries to upload a media file to the server, and returns the operation result.
+	// Storing files in the server folder makes sense only if the client is running on another PC.
+	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
 
+	// Returns a list of files stored in the server's folder.
+	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
+
+	// Returns the displayed media ID if it was displayed successfully
 	rpc Show (Media) returns (Common.String) {}
+
+	// Hides the media given int ID (or does nothing if such media is not displayed)
 	rpc Close (Common.String) returns (google.protobuf.Empty) {}
+
+	// Returns all media visible currently
 	rpc GetVisibleMedias (google.protobuf.Empty) returns (Medias) {}
 
-	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
-	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
+	// Initializes event stream (see "message Event" for the list of events). 
+	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 }
 
 message Screen {

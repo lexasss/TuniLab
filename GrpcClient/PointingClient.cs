@@ -66,7 +66,7 @@ public sealed class PointingClient
 
         if (device?.Description != _currentDevice?.Description)
         {
-            _isConnected = device != null && _client.SetPointingDevice(device).Value;
+            _isConnected = device != null && _client.SetDevice(device).Value;
         }
         else
         {

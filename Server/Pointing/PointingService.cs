@@ -86,7 +86,7 @@ internal class PointingService :
         return Task.FromResult(result);
     }
 
-    public override Task<Common.Bool> SetPointingDevice(
+    public override Task<Common.Bool> SetDevice(
         Proto.Device request,
         ServerCallContext context)
     {

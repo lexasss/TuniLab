@@ -7,21 +7,39 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
-	rpc IsConnected (google.protobuf.Empty) returns (Common.Bool) {}
-	rpc IsEnabled (google.protobuf.Empty) returns (Common.Bool) {}
-	rpc IsCalibrated (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is logging device communication data to a file set with SetLogFileName
 	rpc IsLogging (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Returns true if the service is connected to a TensionR device
+	rpc IsConnected (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if communication with a TensionR device is active
+	rpc IsEnabled (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the TensionR device was calibrated
+	rpc IsCalibrated (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if connecting to the specified COM port was successful.
+	// Call this function before calling Start, Stop, Calibrate or SetTension
 	rpc Connect (Common.String) returns (Common.Bool) {}
+
+	// Call this function before calling Start if you need the device communication data to be logged to a file
 	rpc SetLogFileName (Common.String) returns (Common.Bool) {}
 
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
+	// Enables communication with the device, IsEnabled will return true.
 	rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+	// Calibrates the device.
+	// Always call this function after calling Start, otherwise SetTension may not work.
+	// Mind that the belt motors will start functioning, so a user must be prepared.
 	rpc Calibrate (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-	// 0..64
+	// Sets the tension in range 0-64.
 	rpc SetTension (Tension) returns (google.protobuf.Empty) {}
 }
 

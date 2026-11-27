@@ -7,21 +7,36 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is streaming data to clients
 	rpc IsStreamingData (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is logging gaze data to a file set with SetLogFileName
 	rpc IsLogging (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is connected to an eye tracking device
 	rpc IsConnected (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the tracker calibration routine is in progress
 	rpc IsCalibrating (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the tracker was calibrated already
 	rpc IsCalibrated (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the tracker is tracking eyes
 	rpc IsTracking (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Call this function before calling Start if you need the gaze data to be logged to a file
 	rpc SetLogFileName (Common.String) returns (Common.Bool) {}
 
-	// Initializes data reading stream, but the data is not polling to clients
+	// Initializes gaze data reading stream, but the gaze data is not polling to clients
 	// until Start is called
 	rpc ReadData (google.protobuf.Empty) returns (stream Sample) {}
+
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
-	// Enable of disable data polling to clients
+	// Enables gaze data streaming, and possibly saving it to a file
 	// (has no effect if ReadData was not called yet)
 	rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}

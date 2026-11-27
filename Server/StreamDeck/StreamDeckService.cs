@@ -253,7 +253,7 @@ internal class StreamDeckService : Proto.Dispatcher.DispatcherBase, IFileService
         return false;
     }
 
-    private static OmbColor FromRGB(string rgb)
+    public static OmbColor FromRGB(string rgb)
     {
         // black color means "not a valid color"
 
@@ -261,18 +261,35 @@ internal class StreamDeckService : Proto.Dispatcher.DispatcherBase, IFileService
             return OmbColor.Black;
 
         var p = rgb.Split(',');
-        if (p.Length != 3)
-            return OmbColor.Black;
+        if (p.Length == 3)
+        {
+            try
+            {
+                byte[] values = p.Select(byte.Parse).ToArray();
+                return OmbColor.FromRgb(values[0], values[1], values[2]);
+            }
+            catch
+            {
+                return OmbColor.Black;
+            }
+        }
 
-        try
+        if (rgb.Length == 3)
         {
-            byte[] values = p.Select(byte.Parse).ToArray();
-            return OmbColor.FromRgb(values[0], values[1], values[2]);
+            rgb = $"{rgb[0]}{rgb[0]}{rgb[1]}{rgb[1]}{rgb[2]}{rgb[2]}";
         }
-        catch
+
+        if (rgb.Length == 6)
         {
-            return OmbColor.Black;
+            if (byte.TryParse(rgb[..2], System.Globalization.NumberStyles.HexNumber, null, out var r) &&
+                byte.TryParse(rgb[2..4], System.Globalization.NumberStyles.HexNumber, null, out var g) &&
+                byte.TryParse(rgb[4..], System.Globalization.NumberStyles.HexNumber, null, out var b))
+            {
+                return OmbColor.FromRgb(r, g, b);
+            }
         }
+
+        return OmbColor.Black;
     }
 
     #endregion

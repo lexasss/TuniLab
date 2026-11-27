@@ -7,20 +7,31 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is streaming data to clients
 	rpc IsStreamingData (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is logging data to a file set with SetLogFileName
 	rpc IsLogging (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is connected to a SmartEye device
 	rpc IsConnected (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Call this function before calling Start if you need the gaze data to be logged to a file
 	rpc SetLogFileName (Common.String) returns (Common.Bool) {}
+
+	// Returns true if the SmartEye tracker was connected given IP and a port set in the configuration
 	rpc Configure (Configuration) returns (Common.Bool) {}
 
-	// Initializes data reading stream, but the data is not polling to clients
+	// Initializes gaze data reading stream, but the gaze data is not polling to clients
 	// until Start is called
 	rpc ReadData (google.protobuf.Empty) returns (stream Common.Vector) {}
+
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
-	// Enable of disable data streaming to a log file
-	// (has no effect if SetLogFileName was not called yet)
+	// Enables gaze data streaming, and possibly saving it to a file
+	// (has no effect if ReadData was not called yet)
 	rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
@@ -31,8 +42,8 @@ enum IntersectionSource {
 }
 
 enum PlaneMappingMode {
-	Closest = 0;
-	All = 1;
+	Closest = 0;	// streaming only Intersection events
+	All = 1;		// streaming only Intersections events
 }
 
 message Configuration {

@@ -7,23 +7,37 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is streaming data to clients
 	rpc IsStreamingData (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is logging data to a file set with SetLogFileName
 	rpc IsLogging (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Returns the connection status of the Simucube base, wheel and pedals + MECA pedals
 	rpc GetConnectionStatus (google.protobuf.Empty) returns (ConnectionStatus) {}
+
+	// Returns the list of available Simucube pedal effects
 	rpc GetPeriodicEffectParameters (google.protobuf.Empty) returns (PeriodicEffectParameters) {}
+
+	// Returns true if no other effect is playing currently
 	rpc SetPeriodicEffectParameters (PeriodicEffectParameters) returns (Common.Bool) {}
+
+	// Returns true if no other effect is playing currently and the selected pedal is available
 	rpc PlayPedalEffect (PedalEffect) returns (Common.Bool) {}
 	rpc StopPedalEffect (StopEffect) returns (google.protobuf.Empty) {}
 
+	// Call this function before calling Start if you need the data to be logged to a file
 	rpc SetLogFileName (Common.String) returns (Common.Bool) {}
 
 	// Initializes data reading stream, but the data is not polling to clients
 	// until Start is called
 	rpc ReadData (google.protobuf.Empty) returns (stream Data) {}
+
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 
-	// Enable of disable data polling to clients
+	// Enables data streaming, and possibly saving it to a file
 	// (has no effect if ReadData was not called yet)
 	rpc Start (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}

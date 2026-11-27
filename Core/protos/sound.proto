@@ -8,24 +8,34 @@ import "google/protobuf/empty.proto";
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
 
-	// Returns a lists of all active sound devices
+	// Returns a list of all not hidden sound devices
 	rpc GetDevices (google.protobuf.Empty) returns (Devices) {}
 
-	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
+	// Tries to upload an audio file to the server, and returns the operation result.
+	// Storing files in the server folder makes sense only if the client is running on another PC.
+	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
 
-	// Sets gains of each audio channel, each gain between 0 and 1
+	// Returns a list of audio files stored in the server's folder.
+	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
+
+	// Sets gains of each audio channel separately, each gain between 0 and 1.
+	// The length of the map array must be equal to the number of enabled channels 
+	// of the sound device to be used for playing audio 
+	// (see channelEnablingMap in ToneDescription and FileDescription).
+	// Set empty map to cancel the mapping.
+	// The function can be called while a sound is playing, thus creating various effects.
 	rpc SetChannelMap (ChannelMap) returns (google.protobuf.Empty) {}
 
 	// Plays either a file or a tone.
-	// Returns 0 if cannot play the sound, duration of the audio file or tone in milliseconds
+	// Returns 0 if cannot play the sound, otherwise return duration of the audio file or tone in milliseconds
 	// (or 0x7FFFFFFF if the tone has no duration limit)
 	rpc Play (SoundDescription) returns (Common.Int) {}
+
+	// Stops any audio currently playing
 	rpc Stop (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
-
-	// Returns a list of file stored in the server's app "sounds" folder
-	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
+	// Initializes event stream (see "message Event" for the list of events). 
+	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 }
 
 message Device {

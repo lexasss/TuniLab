@@ -7,25 +7,33 @@ import "google/protobuf/empty.proto";
 
 service Dispatcher {
 	rpc IsAvailable (google.protobuf.Empty) returns (Common.Bool) {}
+
+	// Returns true if the service is connected to a StreamDeck device
 	rpc IsConnected (google.protobuf.Empty) returns (Common.Bool) {}
 
+	// Tries to upload a button icon file to the server, and returns the operation result.
+	// Storing files in the server folder makes sense only if the client is running on another PC.
 	rpc UploadFile(stream Common.UploadRequest) returns (Common.UploadResult);
+
+	// Returns a list of button icon files stored in the server's folder.
 	rpc GetFileList(google.protobuf.Empty) returns (Common.Strings);
 
+	// Returns the keyboard properties, or a 0-initialized Keyboard message if a device is not connected.
 	rpc GetKeyboard (google.protobuf.Empty) returns (Keyboard) {}
-	// 0-100
+
+	// Sets the keyboard brightness in the range 0-100
 	rpc SetBrightness (Common.Int) returns (google.protobuf.Empty) {}
 
+	// Sets icon or a color of a single key, returns false if the icon does not exist
 	rpc SetKey (Key) returns (Common.Bool) {}
 
+	// Initializes event stream (see "message Event" for the list of events). 
 	rpc ReadEvents (google.protobuf.Empty) returns (stream Event) {}
 }
 
 message Key {
-	// -1 means "apply fileNameOrColor to all keys"
-	int32 id = 1;
-	// color is 3 bytes: R,G,B
-	string fileNameOrColor = 2;
+	int32 id = 1;					// -1 means "apply fileNameOrColor to all keys"
+	string fileNameOrColor = 2;		// icon file name or a color as [1] 3 bytes separated by comma (R,G,B), or [2] hex string (like "FF80C0")
 }
 
 message KeyState {
@@ -44,6 +52,6 @@ message Keyboard {
 message Event {
 	oneof value {
 		bool isConnected = 1;
-		KeyState key = 2;
+		KeyState key = 2;		// key pressed or released
 	}
 }
