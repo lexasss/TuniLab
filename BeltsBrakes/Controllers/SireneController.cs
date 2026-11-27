@@ -203,6 +203,10 @@ internal class SireneController
         _soundPlayerClient.SetChannelMap(map);
 
         int? soundDuration = await startPlayback(sd);
+        if (soundDuration != null)
+            Console.Write("Playing circular sound... ");
+        else
+            return;
 
         sd.IsPlaying = true;
 
@@ -224,6 +228,7 @@ internal class SireneController
 
             _soundPlayerClient.Stop();
             sd.IsPlaying = false;
+            Console.WriteLine(" stopped");
         });
     }
 
@@ -255,13 +260,17 @@ internal class SireneController
 
         float direction = 0;
         float[] map = new float[enabledChannelCount];
-        int[] channelRouter = [0, 1, 3, 2, 6, 7, 5, 4]; // these indexes reflect the cabin speakers connection order
+        int[] channelRouter = [0, 1, 3, 2, 7, 6, 4, 5]; // these indexes reflect the cabin speakers connection order
 
         DirectionToMap(direction, map);
         map = Reroute(channelRouter, map);
         _soundPlayerClient.SetChannelMap(map);
 
         int? soundDuration = await startPlayback(sd);
+        if (soundDuration != null)
+            Console.Write("Playing cabin travsering sound... ");
+        else
+            return;
 
         sd.IsPlaying = true;
 
@@ -284,6 +293,7 @@ internal class SireneController
 
             _soundPlayerClient.Stop();
             sd.IsPlaying = false;
+            Console.WriteLine(" stopped");
         });
     }
 

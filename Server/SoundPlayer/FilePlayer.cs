@@ -23,7 +23,8 @@ public class FilePlayer : IDisposable
         {
             _channelRouter = new ChannelRouter(
                 _audioFile.ToMono(),
-                channelEnablingMap);
+                channelEnablingMap,
+                player.DeviceMixFormat);
         }
     }
 

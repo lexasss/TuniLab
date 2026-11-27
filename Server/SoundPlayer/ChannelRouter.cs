@@ -16,12 +16,6 @@ public sealed class ChannelRouter :
         bool[] channelEnablingMap,
         WaveFormat? format = null)
     {
-        if (source == null)
-            throw new ArgumentNullException(nameof(source));
-
-        if (channelEnablingMap == null)
-            throw new ArgumentNullException(nameof(channelEnablingMap));
-
         if (source.WaveFormat.Channels != 1)
             throw new ArgumentException(
                 "The source must be mono.",
